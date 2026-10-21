@@ -1,0 +1,361 @@
+{
+  "id": "wan-animate-2",
+  "name": "Wan Animate 2 — Motion Transfer",
+  "description": "Reference-character animation driven by a short source performance. Generates a new scene; does not preserve the source background. Local inference is not yet benchmarked.",
+  "license": "MIT (this workflow pack); model Apache-2.0; ComfyUI GPL-3.0",
+  "graph": {
+    "1": {
+      "class_type": "LoadVideo",
+      "inputs": {
+        "file": "source.mp4"
+      }
+    },
+    "2": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "reference.png"
+      }
+    },
+    "3": {
+      "class_type": "GetVideoComponents",
+      "inputs": {
+        "video": [
+          "1",
+          0
+        ]
+      }
+    },
+    "4": {
+      "class_type": "UNETLoader",
+      "inputs": {
+        "unet_name": "wan_animate_2_distill_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    "5": {
+      "class_type": "CLIPLoader",
+      "inputs": {
+        "clip_name": "umt5_xxl_fp16.safetensors",
+        "type": "wan",
+        "device": "cpu"
+      }
+    },
+    "6": {
+      "class_type": "VAELoader",
+      "inputs": {
+        "vae_name": "Wan2_1_VAE_bf16.safetensors"
+      }
+    },
+    "7": {
+      "class_type": "CLIPVisionLoader",
+      "inputs": {
+        "clip_name": "clip_vision_h.safetensors"
+      }
+    },
+    "8": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "5",
+          0
+        ],
+        "text": "Character appearance description: The reference character, matching the supplied image. Background description: a simple uncluttered studio."
+      }
+    },
+    "9": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "5",
+          0
+        ],
+        "text": "blurry, distorted anatomy, extra limbs, text, watermark"
+      }
+    },
+    "10": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "5",
+          0
+        ],
+        "text": "A single person performs the movement shown in the driving video."
+      }
+    },
+    "11": {
+      "class_type": "CLIPVisionEncode",
+      "inputs": {
+        "clip_vision": [
+          "7",
+          0
+        ],
+        "image": [
+          "2",
+          0
+        ],
+        "crop": "none"
+      }
+    },
+    "12": {
+      "class_type": "ImageFromBatch",
+      "inputs": {
+        "image": [
+          "3",
+          0
+        ],
+        "batch_index": 0,
+        "length": 1
+      }
+    },
+    "13": {
+      "class_type": "CLIPVisionEncode",
+      "inputs": {
+        "clip_vision": [
+          "7",
+          0
+        ],
+        "image": [
+          "12",
+          0
+        ],
+        "crop": "none"
+      }
+    },
+    "14": {
+      "class_type": "WanAnimate2ToVideo",
+      "inputs": {
+        "positive": [
+          "8",
+          0
+        ],
+        "negative": [
+          "9",
+          0
+        ],
+        "vae": [
+          "6",
+          0
+        ],
+        "width": 480,
+        "height": 480,
+        "length": 49,
+        "batch_size": 1,
+        "reference_image": [
+          "2",
+          0
+        ],
+        "pose_video": [
+          "3",
+          0
+        ],
+        "clip_vision_output": [
+          "11",
+          0
+        ],
+        "positive_pose": [
+          "10",
+          0
+        ],
+        "clip_vision_output_pose": [
+          "13",
+          0
+        ],
+        "video_frame_offset": 0,
+        "pose_strength": 1,
+        "pose_start_percent": 0,
+        "pose_end_percent": 1,
+        "reference_image_strength": 1
+      }
+    },
+    "15": {
+      "class_type": "ModelSamplingSD3",
+      "inputs": {
+        "model": [
+          "4",
+          0
+        ],
+        "shift": 5
+      }
+    },
+    "16": {
+      "class_type": "KSamplerSelect",
+      "inputs": {
+        "sampler_name": "lcm"
+      }
+    },
+    "17": {
+      "class_type": "BasicScheduler",
+      "inputs": {
+        "model": [
+          "15",
+          0
+        ],
+        "scheduler": "simple",
+        "steps": 10,
+        "denoise": 1
+      }
+    },
+    "18": {
+      "class_type": "SamplerCustom",
+      "inputs": {
+        "model": [
+          "15",
+          0
+        ],
+        "add_noise": true,
+        "noise_seed": 42,
+        "cfg": 1,
+        "positive": [
+          "14",
+          0
+        ],
+        "negative": [
+          "14",
+          1
+        ],
+        "sampler": [
+          "16",
+          0
+        ],
+        "sigmas": [
+          "17",
+          0
+        ],
+        "latent_image": [
+          "14",
+          2
+        ]
+      }
+    },
+    "19": {
+      "class_type": "TrimVideoLatent",
+      "inputs": {
+        "samples": [
+          "18",
+          0
+        ],
+        "trim_amount": [
+          "14",
+          3
+        ]
+      }
+    },
+    "20": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "19",
+          0
+        ],
+        "vae": [
+          "6",
+          0
+        ]
+      }
+    },
+    "21": {
+      "class_type": "CreateVideo",
+      "inputs": {
+        "images": [
+          "20",
+          0
+        ],
+        "fps": 24
+      }
+    },
+    "22": {
+      "class_type": "SaveVideo",
+      "inputs": {
+        "video": [
+          "21",
+          0
+        ],
+        "filename_prefix": "open-genjutsu/wan-animate-2",
+        "format": "auto",
+        "codec": "auto"
+      }
+    }
+  },
+  "bindings": {
+    "sourceVideo": {
+      "nodeId": "1",
+      "input": "file"
+    },
+    "referenceImage": {
+      "nodeId": "2",
+      "input": "image"
+    },
+    "prompt": {
+      "nodeId": "8",
+      "input": "text"
+    },
+    "seed": {
+      "nodeId": "18",
+      "input": "noise_seed"
+    },
+    "width": {
+      "nodeId": "14",
+      "input": "width"
+    },
+    "height": {
+      "nodeId": "14",
+      "input": "height"
+    },
+    "frames": {
+      "nodeId": "14",
+      "input": "length"
+    }
+  },
+  "outputNodeIds": [
+    "22"
+  ],
+  "requires": {
+    "nodes": [
+      "LoadVideo",
+      "LoadImage",
+      "GetVideoComponents",
+      "UNETLoader",
+      "CLIPLoader",
+      "VAELoader",
+      "CLIPVisionLoader",
+      "CLIPTextEncode",
+      "CLIPVisionEncode",
+      "ImageFromBatch",
+      "WanAnimate2ToVideo",
+      "ModelSamplingSD3",
+      "KSamplerSelect",
+      "BasicScheduler",
+      "SamplerCustom",
+      "TrimVideoLatent",
+      "VAEDecode",
+      "CreateVideo",
+      "SaveVideo"
+    ],
+    "models": [
+      "wan_animate_2_distill_int8_convrot.safetensors",
+      "umt5_xxl_fp16.safetensors",
+      "Wan2_1_VAE_bf16.safetensors",
+      "clip_vision_h.safetensors"
+    ]
+  },
+  "provenance": {
+    "created": "2026-10-21",
+    "adapter": "Open Genjutsu single-batch API graph based on verified native schemas; no UI subgraphs or cache.",
+    "template": "https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_wan_animate2_distilled.json",
+    "templateLicense": "https://github.com/Comfy-Org/workflow_templates/blob/main/LICENSE",
+    "modelCard": "https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B",
+    "modelLicense": "https://github.com/Wan-Video/Wan-Animate-2/blob/main/LICENSE",
+    "nativeNodes": "https://github.com/Comfy-Org/ComfyUI/blob/master/comfy_extras/nodes_wan.py",
+    "videoNodes": "https://github.com/Comfy-Org/ComfyUI/blob/master/comfy_extras/nodes_video.py",
+    "notes": [
+      "Source-derived schema/wiring check only; no successful generation claimed.",
+      "Normalize source to24fps, max49frames and max480px before upload. Align reference framing with the driving opening pose.",
+      "No audio is copied in this tiny preview.",
+      "Width/height must be multiples16; frames must be4n+1.",
+      "Native official INT8 checkpoint16.7GB + FP16 UMT511.4GB + CLIP1.26GB + VAE0.254GB is about29.6GB of files before activations. This is a heavy compatibility profile, NOT a recommended24GB Mac default.",
+      "FP16 CPU text encoding avoids assuming MPS supports FP8; it adds substantial RAM/runtime cost. Native INT8 ConvRot MPS support remains unverified.",
+      "Distilled sampling follows current official template:10steps, LCM, simple, cfg1, sampling shift5. Cache omitted for memory.",
+      "Do not simply swap to a GGUF checkpoint in UNETLoader. Animate2 GGUF requires correct explicit architecture metadata; otherwise driving video can be silently ignored."
+    ]
+  }
+}

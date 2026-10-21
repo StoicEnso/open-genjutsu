@@ -1,0 +1,306 @@
+{
+  "id": "wan-vace-1-3b-detail",
+  "name": "VACE 1.3B \u2014 Detail Preview",
+  "description": "Twenty-step reference-conditioned motion preview at 256 px. Slower sampling; improved identity or hand anatomy is not guaranteed.",
+  "license": "MIT (this workflow pack); Wan/VACE model and ComfyUI-GGUF Apache-2.0; ComfyUI GPL-3.0",
+  "graph": {
+    "1": {
+      "class_type": "LoadVideo",
+      "inputs": {
+        "file": "source.mp4"
+      }
+    },
+    "2": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "reference.png"
+      }
+    },
+    "3": {
+      "class_type": "GetVideoComponents",
+      "inputs": {
+        "video": [
+          "1",
+          0
+        ]
+      }
+    },
+    "4": {
+      "class_type": "UNETLoader",
+      "inputs": {
+        "unet_name": "wan2.1_vace_1.3B_fp16.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    "5": {
+      "class_type": "CLIPLoaderGGUF",
+      "inputs": {
+        "clip_name": "umt5-xxl-encoder-Q4_K_M.gguf",
+        "type": "wan"
+      }
+    },
+    "6": {
+      "class_type": "VAELoader",
+      "inputs": {
+        "vae_name": "Wan2_1_VAE_bf16.safetensors"
+      }
+    },
+    "7": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "5",
+          0
+        ],
+        "text": "The character shown in the reference image performs the motion of the driving video. Full body, simple studio background."
+      }
+    },
+    "8": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "5",
+          0
+        ],
+        "text": "blurry, distorted anatomy, extra limbs, text, watermark"
+      }
+    },
+    "9": {
+      "class_type": "Canny",
+      "inputs": {
+        "image": [
+          "3",
+          0
+        ],
+        "low_threshold": 0.1,
+        "high_threshold": 0.2
+      }
+    },
+    "10": {
+      "class_type": "WanVaceToVideo",
+      "inputs": {
+        "positive": [
+          "7",
+          0
+        ],
+        "negative": [
+          "8",
+          0
+        ],
+        "vae": [
+          "6",
+          0
+        ],
+        "width": 256,
+        "height": 256,
+        "length": 17,
+        "batch_size": 1,
+        "strength": 1,
+        "control_video": [
+          "9",
+          0
+        ],
+        "reference_image": [
+          "2",
+          0
+        ]
+      }
+    },
+    "11": {
+      "class_type": "ModelSamplingSD3",
+      "inputs": {
+        "model": [
+          "4",
+          0
+        ],
+        "shift": 8
+      }
+    },
+    "12": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": [
+          "11",
+          0
+        ],
+        "seed": 42,
+        "steps": 20,
+        "cfg": 6,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "positive": [
+          "10",
+          0
+        ],
+        "negative": [
+          "10",
+          1
+        ],
+        "latent_image": [
+          "10",
+          2
+        ],
+        "denoise": 1
+      }
+    },
+    "13": {
+      "class_type": "TrimVideoLatent",
+      "inputs": {
+        "samples": [
+          "12",
+          0
+        ],
+        "trim_amount": [
+          "10",
+          3
+        ]
+      }
+    },
+    "14": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "13",
+          0
+        ],
+        "vae": [
+          "6",
+          0
+        ]
+      }
+    },
+    "15": {
+      "class_type": "CreateVideo",
+      "inputs": {
+        "images": [
+          "14",
+          0
+        ],
+        "fps": 24
+      }
+    },
+    "16": {
+      "class_type": "SaveVideo",
+      "inputs": {
+        "video": [
+          "15",
+          0
+        ],
+        "filename_prefix": "open-genjutsu/wan-vace-1.3b",
+        "format": "auto",
+        "codec": "auto"
+      }
+    }
+  },
+  "bindings": {
+    "sourceVideo": {
+      "nodeId": "1",
+      "input": "file"
+    },
+    "referenceImage": {
+      "nodeId": "2",
+      "input": "image"
+    },
+    "prompt": {
+      "nodeId": "7",
+      "input": "text"
+    },
+    "seed": {
+      "nodeId": "12",
+      "input": "seed"
+    },
+    "width": {
+      "nodeId": "10",
+      "input": "width"
+    },
+    "height": {
+      "nodeId": "10",
+      "input": "height"
+    },
+    "frames": {
+      "nodeId": "10",
+      "input": "length"
+    }
+  },
+  "outputNodeIds": [
+    "16"
+  ],
+  "requires": {
+    "nodes": [
+      "LoadVideo",
+      "LoadImage",
+      "GetVideoComponents",
+      "UNETLoader",
+      "CLIPLoaderGGUF",
+      "VAELoader",
+      "CLIPTextEncode",
+      "Canny",
+      "WanVaceToVideo",
+      "ModelSamplingSD3",
+      "KSampler",
+      "TrimVideoLatent",
+      "VAEDecode",
+      "CreateVideo",
+      "SaveVideo"
+    ],
+    "models": [
+      "wan2.1_vace_1.3B_fp16.safetensors",
+      "umt5-xxl-encoder-Q4_K_M.gguf",
+      "Wan2_1_VAE_bf16.safetensors"
+    ]
+  },
+  "provenance": {
+    "created": "2026-10-21",
+    "adapter": "Single-batch native WanVaceToVideo plus Apache-licensed GGUF text encoder loader. No pose model or CLIP Vision download.",
+    "docs": "https://docs.comfy.org/tutorials/video/wan/vace",
+    "modelCard": "https://huggingface.co/Wan-AI/Wan2.1-VACE-1.3B",
+    "repackagedModel": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+    "nativeNodes": "https://github.com/Comfy-Org/ComfyUI/blob/master/comfy_extras/nodes_wan.py",
+    "ggufNodes": "https://github.com/city96/ComfyUI-GGUF",
+    "ggufLicense": "https://github.com/city96/ComfyUI-GGUF/blob/main/LICENSE",
+    "notes": [
+      "Local inference benchmark pending; source-verified wiring is not proof of execution.",
+      "Normalize source to24fps, max17frames and max480px for the initial preview before upload; GetVideoComponents otherwise decodes the whole source.",
+      "VACE 1.3B checkpoint is4.31GB, not merely the base T2V1.3B2.84GB. Encoder3.66GB and VAE0.254GB give about8.22GB download; activations/OS require additional RAM.",
+      "A four-step base-model sample without a verified compatible acceleration LoRA is an under-sampled smoke test, not evidence of final quality. Use a separate20\u201330step acceptance render after the memory/runtime gate.",
+      "Full-frame Canny control preserves structural cues, not source pixels or guaranteed identity. This is not face-swap and is not proven full-character Genjutsu parity.",
+      "No copied source audio. No closed APIs/partner nodes. Width/height multiples16; frames4n+1.",
+      "GGUF text encoder has no device argument in its verified node schema; Comfy selects/offloads it. No direct FP8-on-MPS assumption.",
+      "If MPS rejects an operation, record exact failure; try a separate CPU/float32 diagnostic only. Never disable the global MPS memory watermark to force a run."
+    ],
+    "downloads": [
+      {
+        "filename": "wan2.1_vace_1.3B_fp16.safetensors",
+        "directory": "diffusion_models",
+        "bytes": 4309519800,
+        "sha256": "640ccc0577e6a5d4bb15cd91b11b699ef914fc55f126c5a1c544e152130784f2",
+        "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/123acf1cc74bccbb9bfff8ac1ee72edc08c2341d/split_files/diffusion_models/wan2.1_vace_1.3B_fp16.safetensors",
+        "license": "Apache-2.0"
+      },
+      {
+        "filename": "umt5-xxl-encoder-Q4_K_M.gguf",
+        "directory": "text_encoders",
+        "bytes": 3655145312,
+        "sha256": "17cf97a5bbbc60a646d6105b832b6f657ce904a8a1ad970e4b59df0c67584a40",
+        "url": "https://huggingface.co/city96/umt5-xxl-encoder-gguf/resolve/b535255bee98c2b0a59ea7c0ae2dcd0c6657b3b7/umt5-xxl-encoder-Q4_K_M.gguf",
+        "license": "Apache-2.0"
+      },
+      {
+        "filename": "Wan2_1_VAE_bf16.safetensors",
+        "directory": "vae",
+        "bytes": 253806278,
+        "sha256": "1ab9a32cc2c740f6e39d80d367ce5dcc28db8c71b79b28670546b8973e9d75f9",
+        "url": "https://huggingface.co/Comfy-Org/Wan-Animate-2/resolve/e7181fe1896b7f2ce34120d1a3663413548240d7/vae/Wan2_1_VAE_bf16.safetensors",
+        "license": "Apache-2.0"
+      }
+    ],
+    "testStatus": {
+      "schemas": "Verified against runningComfy0.42.0object_info2026-10-21",
+      "generation": "Pending modeldownload andactualVACErender",
+      "sdk": "OfficialPythonSDK/proxyimage andvideo roundtripsucceeded; no diffusionclaim"
+    }
+  },
+  "metadata": {
+    "sampling": "20-step quality evaluation; direct four-step benchmark does not validate this preset."
+  }
+}

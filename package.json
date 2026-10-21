@@ -1,0 +1,72 @@
+{
+  "name": "open-genjutsu",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A local-first character recasting studio powered by ComfyUI.",
+  "license": "MIT",
+  "author": "StoicEnso",
+  "main": "desktop/main.cjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"OPEN_GENJUTSU_DEV_ORIGIN=http://127.0.0.1:5173 tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
+    "build": "tsc --noEmit && vite build && tsup server/index.ts --format esm --platform node --target node22 --out-dir dist-server --no-splitting",
+    "start": "node dist-server/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "desktop": "npm run build && electron .",
+    "package:mac": "npm run build && electron-builder --mac dir --arm64 --publish never"
+  },
+  "dependencies": {
+    "@comfyorg/sdk": "0.5.0",
+    "express": "^5.1.0",
+    "lucide-react": "^0.468.0",
+    "multer": "^2.0.2",
+    "proper-lockfile": "^4.1.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "yazl": "^3.3.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.7.0",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/yazl": "^3.3.1",
+    "@vitejs/plugin-react": "^5.0.4",
+    "concurrently": "^9.2.1",
+    "electron": "^44.9.2",
+    "electron-builder": "^26.0.12",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12"
+  },
+  "build": {
+    "appId": "org.stoicenso.open-genjutsu",
+    "productName": "Open Genjutsu",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-server/**/*",
+      "desktop/**/*",
+      "workflows/**/*",
+      "package.json",
+      "LICENSE"
+    ],
+    "asar": true,
+    "mac": {
+      "icon": "desktop/icon.icns",
+      "category": "public.app-category.video",
+      "identity": null,
+      "target": "dir"
+    }
+  }
+}

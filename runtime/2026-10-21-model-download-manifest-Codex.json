@@ -1,0 +1,33 @@
+{
+  "created": "2026-10-21",
+  "note": "Expected hashes from public Hugging Face x-linked-etag; verify completed files before inference.",
+  "models": [
+    {
+      "path": "models/diffusion_models/wan2.1_vace_1.3B_fp16.safetensors",
+      "bytes": 4309519800,
+      "sha256": "640ccc0577e6a5d4bb15cd91b11b699ef914fc55f126c5a1c544e152130784f2",
+      "repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+      "revision": "123acf1cc74bccbb9bfff8ac1ee72edc08c2341d",
+      "source": "split_files/diffusion_models/wan2.1_vace_1.3B_fp16.safetensors",
+      "license": "Apache-2.0"
+    },
+    {
+      "path": "models/text_encoders/umt5-xxl-encoder-Q4_K_M.gguf",
+      "bytes": 3655145312,
+      "sha256": "17cf97a5bbbc60a646d6105b832b6f657ce904a8a1ad970e4b59df0c67584a40",
+      "repo": "city96/umt5-xxl-encoder-gguf",
+      "revision": "b535255bee98c2b0a59ea7c0ae2dcd0c6657b3b7",
+      "source": "umt5-xxl-encoder-Q4_K_M.gguf",
+      "license": "Apache-2.0"
+    },
+    {
+      "path": "models/vae/Wan2_1_VAE_bf16.safetensors",
+      "bytes": 253806278,
+      "sha256": "1ab9a32cc2c740f6e39d80d367ce5dcc28db8c71b79b28670546b8973e9d75f9",
+      "repo": "Comfy-Org/Wan-Animate-2",
+      "revision": "e7181fe1896b7f2ce34120d1a3663413548240d7",
+      "source": "vae/Wan2_1_VAE_bf16.safetensors",
+      "license": "Apache-2.0"
+    }
+  ]
+}
