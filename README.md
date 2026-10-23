@@ -6,7 +6,7 @@ A local-first studio for reference-conditioned video workflows in ComfyUI. Bring
 
 ![Fully local synthetic driving performance, references and portrait outputs](docs/assets/2026-10-23-local-casting-comparison-Codex.png)
 
-[58.25-second app demo](docs/assets/2026-10-23-submission-demo-Codex.mp4) · [Local casting comparison](docs/assets/2026-10-23-local-casting-comparison-Codex.mp4) · [Portrait reaction clip](docs/assets/2026-10-23-influencer-reaction-Codex.mp4) · [Verification](docs/2026-10-23-router-and-influencer-verification-Codex.md)
+[Watch the 58.25-second demo](https://stoicenso.github.io/open-genjutsu/2026-10-23-demo-Codex/) · [Download film](docs/assets/2026-10-23-submission-demo-Codex.mp4) · [Local casting comparison](docs/assets/2026-10-23-local-casting-comparison-Codex.mp4) · [Portrait reaction clip](docs/assets/2026-10-23-influencer-reaction-Codex.mp4) · [Verification](docs/2026-10-23-router-and-influencer-verification-Codex.md)
 
 [Earlier real-human tests and limits](docs/2026-10-23-human-footage-verification-Codex.md) · [Earlier illustrated VACE baseline](docs/2026-10-21-verification-Codex.md). Synthetic footage is not a real-human benchmark.
 
