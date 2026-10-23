@@ -21,7 +21,7 @@ The Open Genjutsu application is MIT licensed. Dependencies retain their origina
 
 Do not assume an npm wrapper's license applies to a downloaded binary, or that a quantized weight file changes the upstream model's terms. In particular, the macOS ARM binary supplied by ffmpeg-static b6.1.1 was inspected during development, found configured with `--enable-nonfree`, and excluded from the distributable application.
 
-No model weights, Higgsfield code bundles or account credentials are included. Attributed historical public-domain examples, where retained, have separate media credits. The new primary demo uses independently generated local synthetic inputs; it excludes modern stock and Higgsfield-generated development media. See [Router and fictional-character verification](docs/2026-10-23-router-and-influencer-verification-Codex.md).
+No model weights, Higgsfield code bundles or account credentials are included. Earlier historical test media is archived outside the current submission version, with textual credits retained. The new primary demo uses independently generated local synthetic inputs; it excludes modern stock and Higgsfield-generated development media. See [Router and fictional-character verification](docs/2026-10-23-router-and-influencer-verification-Codex.md).
 
 ## LivePortrait portrait adapter (added 23 October 2026)
 
