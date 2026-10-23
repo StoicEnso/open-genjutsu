@@ -2,13 +2,13 @@
 
 A local-first studio for reference-conditioned video workflows in ComfyUI. Bring a driving clip and a character image, make short previews, compare the result, and keep the graph and inputs with every take.
 
-**v0.2 local portrait beta.** Real human footage now drives a photographic portrait through an offline, core-only LivePortrait workflow. A 33-frame human blink test completed through the app in **36.9 seconds** on an M4 Pro / 24GB Mac, preserving the reference’s appearance with approximate eyelid motion. A separate historical-human example completed in **26.1 seconds**; its exported project replayed with all 25 decoded frames matching on the same runtime. Large head turns, angled paintings and full-body recasting still have visible quality limits. This is an independent open-source product, without a Higgsfield model or quality-parity claim.
+**v0.3 portrait beta · updated 23 October 2026.** Optional Comfy Router BYOK is now implemented. Local rendering stays keyless and is selected by default. The public fictional-character demo uses independently generated local inputs and local LivePortrait output: **49 frames at 12 fps, or 4.08 seconds**, from one performance applied to two references. Expressions and gaze are approximate; this is portrait animation, without a full-body, scene-replacement or Higgsfield quality-parity claim. The separate hosted route is implemented and protocol-tested, but no real paid provider generation or hosted output-quality test has been run.
 
-![Actual historical human-to-portrait comparison](docs/assets/2026-10-23-human-portrait-comparison-Codex.png)
+![Fully local synthetic driving performance, references and portrait outputs](docs/assets/2026-10-23-local-casting-comparison-Codex.png)
 
-[34-second showcase](docs/assets/2026-10-23-open-genjutsu-showcase-Codex.mp4) · [Normal-speed human portrait comparison](docs/assets/2026-10-23-human-portrait-comparison-Codex.mp4) · [Working Mac app](docs/assets/2026-10-23-working-mac-app-Codex.png)
+[58.25-second app demo](docs/assets/2026-10-23-submission-demo-Codex.mp4) · [Local casting comparison](docs/assets/2026-10-23-local-casting-comparison-Codex.mp4) · [Portrait reaction clip](docs/assets/2026-10-23-influencer-reaction-Codex.mp4) · [Verification](docs/2026-10-23-router-and-influencer-verification-Codex.md)
 
-[Human-footage verification and limits](docs/2026-10-23-human-footage-verification-Codex.md) · [Earlier illustrated VACE baseline](docs/2026-10-21-verification-Codex.md)
+[Earlier real-human tests and limits](docs/2026-10-23-human-footage-verification-Codex.md) · [Earlier illustrated VACE baseline](docs/2026-10-21-verification-Codex.md). Synthetic footage is not a real-human benchmark.
 
 ## What it does
 
@@ -19,35 +19,38 @@ A local-first studio for reference-conditioned video workflows in ComfyUI. Bring
 - Saved jobs, input hashes, exact SDK execution graphs, and portable project export.
 - Immutable saved recipes: reopening a take retains its workflow revision and original local engine.
 - Browser interface on localhost and a Mac application sharing the same frontend and backend.
-- Keyless local execution only. No analytics, subscriptions, provider keys, cloud fallback, or paid API nodes.
+- Keyless local execution by default, with no automatic cloud fallback.
+- A separate optional paid Comfy Router mode: whole-file upload consent, a returned estimate, then approval of one hosted request. No provider key is needed for Local mode.
 
 Choose the performance window and source/reference crops before rendering. Originals remain intact; receipts and project ZIPs retain the exact prepared inputs, crop regions, FPS, start time and hashes. Rotated phone footage is normalized before cropping. The comparison shows the prepared performance window alongside the actual output.
+
+Inspect the recorded [Nova project](docs/examples/2026-10-23-local-cast-projects-Codex/2026-10-23-nova-project-Codex.zip) and [Rowan project](docs/examples/2026-10-23-local-cast-projects-Codex/2026-10-23-rowan-project-Codex.zip). Each contains original/prepared inputs, actual output, hashes, receipt and `portable-workflow-api.json`. Follow the included bundle instructions: the manifest’s authored `workflow.graph` retains preset defaults, while the receipt, recorded parameters and portable graph describe the executed 49-frame, motion-1.0 take. Their contents were verified; these two current exports have not been rerendered as a new runtime-replay test.
 
 Previews accept **up to 49 frames** at the workflow’s actual FPS. At 16 fps, 33 frames span 2.06 seconds. VACE canvases have a maximum 480px edge; the portrait lane takes square 256px inputs and decodes a 512px portrait. This output resolution is not a promise of recovered source detail. The app fits selected regions with padding, without stretching or enlarging source pixels. Incomplete windows are rejected before model submission.
 
 ## Run locally
 
-Prerequisites:
+Common prerequisites:
 
 - Node.js 22 or newer.
 - `ffmpeg` and `ffprobe` installed locally. On macOS, the app also discovers standard Homebrew paths. No FFmpeg binary is redistributed in this repository or Mac package.
-- A recent [ComfyUI](https://github.com/Comfy-Org/ComfyUI) installation and the models/nodes required by the selected workflow.
-- The official [comfy-api-proxy](https://github.com/Comfy-Org/comfy-api-proxy), a free adapter for the official SDK. Comfy Cloud is not required.
+
+The current work is on the [human-footage-quality branch](https://github.com/StoicEnso/open-genjutsu/tree/codex/human-footage-quality) while its pull request is pending:
 
 ```bash
-git clone https://github.com/StoicEnso/open-genjutsu.git
+git clone --branch codex/human-footage-quality https://github.com/StoicEnso/open-genjutsu.git
 cd open-genjutsu
 npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. The app API listens on loopback port 4317. In another terminal, run your configured ComfyUI and its local proxy:
+Open **http://127.0.0.1:5173**. The app API listens on loopback port 4317. For **Local** mode, also install a recent [ComfyUI](https://github.com/Comfy-Org/ComfyUI), the selected workflow’s models/nodes, and the official [comfy-api-proxy](https://github.com/Comfy-Org/comfy-api-proxy). Run ComfyUI and its proxy in separate terminals:
 
 ```bash
-# From your ComfyUI environment:
+# Terminal 1, from your ComfyUI environment and directory:
 python main.py --listen 127.0.0.1 --port 8188
 
-# Install the tested proxy in the Python environment you will use for it:
+# Terminal 2, in the Python environment you will use for the proxy:
 python -m pip install comfy-api-proxy==0.1.6
 comfy-api-proxy run --host 127.0.0.1 --port 8189 --comfyui http://127.0.0.1:8188
 ```
@@ -80,7 +83,19 @@ npm run desktop      # Build and launch the desktop app
 npm run package:mac  # Development .app under release/mac-arm64/
 ```
 
-The Mac build is a development package, without Apple notarization. It does not include model weights, ComfyUI, or the Python runtime. Local FFmpeg is required for media validation and bounded preview preparation.
+The Mac build is a development package, without Apple notarization. It does not include model weights, ComfyUI, Python or FFmpeg. Local mode needs those external inference components; Router mode needs local FFmpeg/FFprobe for media validation but does not need a local inference server or GPU. The v0.3 ARM64 package built and launched successfully, rendered the final neutral-Rowan take in **50.117 seconds**, and reopened its saved take. This uses the existing configured runtime; a fresh-machine installation has not been verified.
+
+## Optional Comfy Router mode
+
+Choose **Comfy Router** in the studio and add a real Comfy workspace API key. Browser/server mode keeps it in the server session by default. On the Mac app, **Remember securely on this Mac** optionally writes a `0600` ciphertext file under Electron’s `userData/credentials/comfy-router.encrypted`, encrypted with Electron `safeStorage` using the OS-backed key. There is no plaintext fallback. The key is not placed in browser storage, signed media URLs, public receipts or project exports. Forgetting it removes the session key and attempts to remove the saved ciphertext.
+
+This typed adapter targets only **Seedance 2.0 reference video**, `byteplus/dreamina-seedance-2-0-260128`, through [Comfy Router](https://docs.comfy.org/development/comfy-router/quickstart). It does not enable paid nodes in imported workflow graphs or arbitrary remote Comfy endpoints.
+
+1. Choose a whole MP4/MOV clip up to 15 seconds and 20 MB, plus a PNG/JPEG reference up to 10 MB. Local crop/start selections do not apply.
+2. Explicitly approve sending both original files to Comfy storage, then select **Upload & get price**. Uploads may be retained by Comfy. This does not start a render.
+3. Review the exact files, model, settings and USD estimate. A separate confirmation approves one paid generation using your **Comfy workspace credits**, not Higgsfield website credits.
+
+The workspace needs Asset API, estimate and model-queue access plus sufficient funds. A `403` or unusable estimate blocks generation. No key, account upgrade or top-up is supplied by this app. Estimates are not price locks or billing caps; failed or cancelled requests may still be billed. An ambiguous submission is never automatically resubmitted, and recovery follows a saved provider receipt. Local mode remains available without this account. **BYOK does not mean free inference.** See [verification and remaining limits](docs/2026-10-23-router-and-influencer-verification-Codex.md).
 
 ## Included workflow packs
 
@@ -127,7 +142,7 @@ This abbreviated example is a format illustration, not an executable generation 
 
 Application state and media live outside the repository, under the platform application-data directory. The Mac app uses a `desktop-workspace` subfolder in its Electron `userData` directory. Set `OPEN_GENJUTSU_DATA_DIR` to choose a workspace. A workspace lock prevents two server processes from overwriting the same state. A browser can use the desktop server's local URL to share that running workspace.
 
-The source video and reference are uploaded only to the configured local Comfy proxy. This initial release accepts loopback addresses only. OS-level local users and processes can access a local service; this is not a multi-user hosted backend. Host, origin, redirects and backend links are checked, and inherited Comfy cloud credentials are excluded.
+In Local mode, the source and reference go only to the configured loopback Comfy proxy, with inherited cloud credentials excluded. In Cloud mode, the separately approved quote operation uploads the whole originals outside the device; the paid model request needs its own confirmation. Private cloud-tracking state retains signed input links, but public receipts omit them. OS-level local users and processes can access a local service; this is not a multi-user hosted backend. Host, origin, redirects and backend links are checked. No analytics are added by the app.
 
 Useful environment variables:
 
@@ -138,17 +153,17 @@ Useful environment variables:
 | `OPEN_GENJUTSU_FFMPEG` | Explicit path to a local FFmpeg executable |
 | `OPEN_GENJUTSU_FFPROBE` | Explicit path to a local FFprobe executable |
 
-Provider BYOK and remote self-hosted servers are future work. A provider key would enable billable usage; BYOK does not mean free inference.
+Remote self-hosted servers and arbitrary provider endpoints remain unsupported. Cloud access is confined to the separate audited Comfy Router adapter.
 
 ## Provenance and competition
 
-Built for the [Open Source Higgsfield competition](https://comfy.org/open-source-higgsfield/) using [`@comfyorg/sdk`](https://github.com/Comfy-Org/comfy-typescript-sdk) against a self-hosted Comfy proxy. The rules checked on 23 October explicitly permit entirely local ComfyUI; SDK/Router is one supported path. Current rules allow one submission per person, so multiple workflows belong to this one app.
+Built for the [Open Source Higgsfield competition](https://comfy.org/open-source-higgsfield/) using [`@comfyorg/sdk`](https://github.com/Comfy-Org/comfy-typescript-sdk) against a self-hosted Comfy proxy, plus the optional typed Router adapter. The rules checked on 23 October permit entirely local ComfyUI and allow one submission per person. The deadline is **30 October 2026, 09:00 PDT / 16:00 UTC**. Best Overall consideration is automatic. No Open Weights Only claim is made for the app with its optional closed-model cloud route; no prize or existing viral traction is claimed.
 
 The product contract was studied from the public Genjutsu interface and shipped browser scripts, including actual REA 6.7 static analysis with retained evidence and coverage limitations. No proprietary bundles, branding, demo media, account data, or server implementation are copied into this repository. Public client code cannot establish Higgsfield's private model, quality, timing, or rendering algorithm.
 
 Motion transfer and agent-assisted video are established areas. Related open projects include [LivePortrait](https://github.com/KwaiVGI/LivePortrait), [Mix Studio](https://github.com/BlackMixture/Mix-Studio), [Castcut](https://github.com/doodersrage/castcut), [VACE](https://github.com/ali-vilab/VACE), and Comfy's own examples. The contribution here is the local product workflow, explicit readiness, durable recipes, and inspectable execution—not a new foundation model.
 
-The public historical example uses attributed 19th-century public-domain footage and a Library of Congress portrait. Modern stock tests and their outputs remain private because public-demo likeness permission was not verified. The competition’s likeness wording has no explicit historical-material exception; this repository does not invent an organizer ruling or certify eligibility.
+The primary demo uses independently generated **local synthetic** inputs. Modern stock and Higgsfield-generated development inputs and their derivative outputs are excluded from that demo and remain private. Higgsfield’s output-ownership terms do not settle its separate restriction on using the service or outputs to develop competing products; no breach or blanket permission is certified. Earlier historical-source tests retain their credits and limitations in the human-footage report. The final app film is **58.25 seconds**, and the public media, input-generation graphs and provenance are included. Personal application answers, a transmitted social post and the final application submission remain pending; this repository does not certify an organizer ruling.
 
 ## License
 

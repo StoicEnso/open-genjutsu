@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import type { Server } from 'node:http';
 import { Backend } from './comfy.js';
+import { Cloud, type CloudCredentialStore } from './cloud.js';
 import { streamBundle } from './bundles.js';
 import { HttpError, messageOf } from './errors.js';
 import { Jobs } from './jobs.js';
@@ -24,12 +25,16 @@ export interface AppOptions {
   allowedOrigins?: string[];
   /** Protocol tests inject only HTTP transport; the real Comfy SDK still runs. */
   transport?: FetchLike;
+  /** Offline provider protocol tests inject this separately from the local transport. */
+  cloudTransport?: FetchLike;
+  cloudCredentials?: CloudCredentialStore;
   pollMs?: number;
   binaries?: { ffmpeg?: string; ffprobe?: string };
 }
 export async function createApp(options: AppOptions = {}, deferRecovery = false): Promise<Express> {
   const store = new Store(options.dataDir || defaultDataDir());
   let jobs: Jobs | undefined;
+  let cloud: Cloud | undefined;
   let compromised = false;
   let closed = false;
   let serviceClosing: Promise<void> | undefined;
@@ -37,11 +42,12 @@ export async function createApp(options: AppOptions = {}, deferRecovery = false)
     compromised = true;
     console.error('[open-genjutsu] Workspace lock lost; stopping this instance:', messageOf(error));
     void jobs?.close().catch(failure => console.error('[open-genjutsu]', messageOf(failure)));
+    void cloud?.close().catch(() => undefined);
   });
   const close = (): Promise<void> => {
     if (serviceClosing) return serviceClosing;
     closed = true;
-    serviceClosing = (async () => { try { await jobs?.close(); } finally { await release().catch(error => { if (!compromised) throw error; }); } })();
+    serviceClosing = (async () => { try { await Promise.all([jobs?.close(), cloud?.close()]); } finally { await release().catch(error => { if (!compromised) throw error; }); } })();
     return serviceClosing;
   };
   try {
@@ -60,6 +66,9 @@ export async function createApp(options: AppOptions = {}, deferRecovery = false)
     }
   }
   const media = new Media(store, options.binaries);
+  cloud = new Cloud(store, media, options.cloudTransport, options.cloudCredentials, options.pollMs);
+  await cloud.init();
+  const hosted = cloud;
   const backend = new Backend(options.transport);
   jobs = new Jobs(store, media, backend, options.pollMs);
   const queue = jobs;
@@ -70,9 +79,19 @@ export async function createApp(options: AppOptions = {}, deferRecovery = false)
   app.use(requestGuard(options.allowedOrigins));
   app.use((_req, _res, next) => next(compromised || closed ? new HttpError(503, 'workspace_unavailable', 'This instance no longer owns its workspace. Close it and reopen the application before making changes.') : undefined));
   app.use(express.json({ limit: '2mb', strict: true }));
-  app.locals.services = { store, media, backend, jobs: queue, close, start: () => { if (!compromised && !closed) queue.start(); } };
+  app.locals.services = { store, media, backend, jobs: queue, cloud: hosted, close, beginShutdown: () => { closed = true; return hosted.close(); }, start: () => { if (!compromised && !closed) queue.start(); } };
   const routeId = (value: unknown): string => idSchema.parse(value);
-  app.get('/api/health', async (_req, res) => { res.json({ ok: true, app: 'Open Genjutsu', version: '0.2.0', mode: 'keyless-local', integration: '@comfyorg/sdk@0.5.0', media: await media.status(), limits: { uploadBytes: MAX_FILE_BYTES, sourceSeconds: 30, previewFrames: 49, previewFps: { min: 8, max: 30, default: 'workflow' }, previewMaxDimension: 480 } }); });
+  app.get('/api/health', async (_req, res) => { res.json({ ok: true, app: 'Open Genjutsu', version: '0.3.0', mode: 'local-first-optional-cloud', integration: '@comfyorg/sdk@0.5.0', media: await media.status(), limits: { uploadBytes: MAX_FILE_BYTES, sourceSeconds: 30, previewFrames: 49, previewFps: { min: 8, max: 30, default: 'workflow' }, previewMaxDimension: 480 } }); });
+  app.get('/api/cloud/status', (_req, res) => res.json(hosted.status()));
+  app.put('/api/cloud/key', async (req, res) => res.json(await hosted.setKey(req.body)));
+  app.delete('/api/cloud/key', async (_req, res) => res.json(await hosted.clearKey()));
+  app.post('/api/cloud/quote', async (req, res) => res.json(await hosted.quote(req.body)));
+  app.post('/api/cloud/jobs', async (req, res) => res.status(202).json(await hosted.create(req.body)));
+  app.get('/api/cloud/jobs', (_req, res) => res.json(hosted.list()));
+  app.get('/api/cloud/jobs/:id', (req, res) => res.json(hosted.get(routeId(req.params.id))));
+  app.get('/api/cloud/jobs/:id/manifest', (req, res) => res.json(hosted.manifest(routeId(req.params.id))));
+  app.post('/api/cloud/jobs/:id/cancel', async (req, res) => res.json(await hosted.cancel(routeId(req.params.id))));
+  app.post('/api/cloud/jobs/:id/resume', async (req, res) => res.json(await hosted.resume(routeId(req.params.id))));
   app.get('/api/settings', (_req, res) => { res.json(store.snapshot().settings); });
   app.put('/api/settings', async (req, res) => {
     const input = z.object({ comfyUrl: z.string().max(200), proxyUrl: z.string().max(200) }).strict().parse(req.body);
@@ -152,6 +171,13 @@ export async function createApp(options: AppOptions = {}, deferRecovery = false)
   }
   const handleError: ErrorRequestHandler = (error: unknown, _req, res, _next) => {
     if (res.headersSent) return;
+    if (_req.path.startsWith('/api/cloud')) {
+      // Parser/SDK errors can echo input bodies or signed URLs. Never expose or log them.
+      const safe = error instanceof HttpError;
+      const status = safe ? error.status : error instanceof ZodError || (error as {status?: number})?.status === 400 ? 400 : 500;
+      res.status(status).json({error:{code:safe?error.code:'cloud_request',message:safe?error.message:status===400?'Check the cloud request fields.':'The optional cloud operation failed. Local generation remains available.'}});
+      return;
+    }
     if (error instanceof ZodError) { res.status(400).json({ error: { code: 'validation_error', message: 'Check the submitted fields.', details: error.issues } }); return; }
     if (error instanceof multer.MulterError) { res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: { code: error.code, message: error.code === 'LIMIT_FILE_SIZE' ? 'Files must be 200MB or smaller.' : 'Upload exactly one file in the file field.' } }); return; }
     const status = error instanceof HttpError ? error.status : typeof error === 'object' && error && 'status' in error && typeof error.status === 'number' ? error.status : 500;
@@ -180,10 +206,13 @@ export async function startServer(options: StartOptions = {}): Promise<{ port: n
   app.locals.services.start();
   let closing: Promise<void> | undefined;
   return { app, server, port: address.port, close: () => closing ||= (async () => {
+    // Abort long quote handlers before waiting for HTTP drain, but retain the
+    // workspace lock until every handler/worker has stopped touching its files.
+    const cloudStopping: Promise<void> = app.locals.services.beginShutdown();
     // Keep the workspace lock until HTTP handlers have drained, so a final
     // upload/export cannot race a newly opened instance's state file.
     try { if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
-    finally { await app.locals.services.close(); }
+    finally { await cloudStopping; await app.locals.services.close(); }
   })() };
   } catch (error) { await app.locals.services.close(); throw error; }
 }

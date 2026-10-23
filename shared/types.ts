@@ -126,3 +126,65 @@ export interface JobManifest {
   notice: string;
 }
 export interface ApiError { error: { code: string; message: string; details?: unknown } }
+
+/** Optional hosted mode; credentials and signed media URLs never enter this contract. */
+export interface CloudInput {
+  sourceVideoId: string;
+  referenceImageId: string;
+  prompt: string;
+  duration: number;
+  resolution: '480p' | '720p';
+  ratio: '1:1' | '16:9' | '9:16';
+}
+export interface CloudStatus {
+  provider: 'comfy-router';
+  keyConfigured: boolean;
+  storage: 'session' | 'encrypted';
+  canRemember: boolean;
+  modelId: string;
+  modelName: string;
+  warnings: string[];
+}
+export interface CloudQuote {
+  id: string;
+  provider: 'comfy-router';
+  modelId: string;
+  modelName: string;
+  input: CloudInput;
+  source: Asset;
+  reference: Asset;
+  amount: string;
+  currency: 'USD';
+  expiresAt: string;
+  requestHash: string;
+  warnings: string[];
+}
+export interface CloudJob {
+  id: string;
+  modelId: string;
+  input: CloudInput;
+  quotedAmount: string;
+  currency: 'USD';
+  status: JobStatus;
+  message: string;
+  requestId?: string;
+  outputs: Asset[];
+  createdAt: string;
+  updatedAt: string;
+  manifestUrl: string;
+  error?: string;
+}
+export interface CloudManifest {
+  version: 1;
+  app: 'Open Genjutsu';
+  provider: 'comfy-router';
+  modelId: string;
+  job: CloudJob;
+  source: Asset;
+  reference: Asset;
+  sourceSha256: string;
+  referenceSha256: string;
+  requestHash: string;
+  quote: { amount: string; currency: 'USD'; approvedAt: string };
+  notice: string;
+}

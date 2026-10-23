@@ -1,0 +1,238 @@
+{
+  "created": "2026-10-23",
+  "appVersion": "0.3.0",
+  "primaryDemo": "Fully independent local synthetic inputs; actual app LivePortrait output. This case is not real human footage.",
+  "assets": [
+    {
+      "file": "assets/2026-10-23-local-driving-performance-Codex.mp4",
+      "bytes": 96881,
+      "sha256": "6bdc971d3464abe10353f2594580c7bcd52798bb9f002a58d98880bd6694468b",
+      "kind": "local synthetic fixture"
+    },
+    {
+      "file": "assets/2026-10-23-nova-reference-Codex.png",
+      "bytes": 328974,
+      "sha256": "9907823dead8a58fdc685f9573b127de546a808849d38a98567b448aa8f09771",
+      "kind": "local synthetic fixture"
+    },
+    {
+      "file": "assets/2026-10-23-rowan-reference-Codex.png",
+      "bytes": 284763,
+      "sha256": "2bfab750dab7de7db75e6c29499272c9c8d1123cef7b5f76ee0f51b8fa6f73a6",
+      "kind": "local synthetic fixture"
+    },
+    {
+      "file": "assets/2026-10-23-nova-output-Codex.mp4",
+      "bytes": 202584,
+      "sha256": "972896bc4d9b805248635ae3c7cd0f109176a13ecf2643b3b0d9dc24f2bcb148",
+      "kind": "actual local LivePortrait output"
+    },
+    {
+      "file": "assets/2026-10-23-rowan-output-Codex.mp4",
+      "bytes": 333549,
+      "sha256": "d16810a5afc6fe1b108f4eab8bb198e7bbed8400f528ffbf0c1ff08e124d8905",
+      "kind": "actual local LivePortrait output"
+    }
+  ],
+  "inputGeneration": {
+    "model": "Wan2.1VACE1.3B + UMT5XXLQ4_K_M + Wan2.1VAE",
+    "engine": "Existing offline localComfy0.42.0 on M4Pro24GB",
+    "referenceNova": {
+      "promptId": "267dc651-e2a1-4730-9057-f3e76996ae98",
+      "wallSeconds": 87.754
+    },
+    "driver": {
+      "promptId": "87ef4550-5995-4680-a489-9441dfcf14c5",
+      "wallSeconds": 421.567
+    },
+    "referenceRowanNeutral": {
+      "promptId": "265d5dac-db6e-4496-ae5f-8d99e75f0a87",
+      "wallSeconds": 86.099
+    },
+    "graphs": "examples/2026-10-23-local-input-generation-Codex",
+    "noExternalMedia": true,
+    "newWeightsDownloaded": false
+  },
+  "casts": [
+    {
+      "character": "Nova",
+      "job": "207815dc-4246-436f-98d2-2a3d318f14ef",
+      "wallSeconds": 50.182
+    },
+    {
+      "character": "Rowan neutral-reference candidate",
+      "job": "22df80c5-cd4d-4000-b4e6-ecbaf762fa29",
+      "wallSeconds": 50.117
+    }
+  ],
+  "parameters": {
+    "frames": 49,
+    "fps": 12,
+    "durationSeconds": 4.083333333333333,
+    "sourceSize": 320,
+    "preparedSourceSize": 256,
+    "preparedReferenceSize": 256,
+    "outputSize": 512,
+    "motionStrength": 1,
+    "startSeconds": 0,
+    "sourceCrop": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "referenceCrop": [
+      0,
+      0,
+      1,
+      1
+    ]
+  },
+  "timingNote": "Final illustrated characters were rendered in separate runs. Earlier two-job queued pair completed98.662s inclusivequeue and used a different smiling male reference; do not reassign that pair timing to final assets.",
+  "quality": "Stable appearance and framing in these short frontal tests. Approximate expressions, gaze and eyelid closure. No body/scene replacement or quality parity claim. Neutral-reference revision changes prompt and generated face as well as expression; not a controlled mouth-only experiment.",
+  "researchInspiration": {
+    "url": "https://www.tiktok.com/@kristindavis/video/7696607238936349983",
+    "publishedUtc": "2026-10-14T19:27:09Z",
+    "playsAtCheck": 2100000,
+    "checked": "2026-10-23",
+    "use": "Numeric reaction format inspiration only; none of the post video/audio/identity is reused. No app traction claim."
+  },
+  "cost": "No purchases or providerAPI generations. Separate Higgsfield website attempt was refunded; those generated assets and derivatives are excluded this demo.",
+  "presentationExports": [
+    {
+      "file": "2026-10-23-local-casting-comparison-Codex.mp4",
+      "sha256": "de03722c550a2d34d8b54486cbc4301d0c3c3a6f1097fb8e8ac148dafaa248fd",
+      "bytes": 932075,
+      "width": 1280,
+      "height": 720,
+      "frames": 147,
+      "fps": 12,
+      "durationSeconds": 12.25,
+      "oneSilentH264Stream": true,
+      "faststartMoovBeforeMdat": true,
+      "fullDecodePassed": true,
+      "metadataContainsNoPrivatePaths": true
+    },
+    {
+      "file": "2026-10-23-influencer-reaction-Codex.mp4",
+      "sha256": "dac6c9b51b9404675948536e0609fc313f5c535810eda74510f92dc644685986",
+      "bytes": 373078,
+      "width": 720,
+      "height": 1280,
+      "frames": 147,
+      "fps": 12,
+      "durationSeconds": 12.25,
+      "oneSilentH264Stream": true,
+      "faststartMoovBeforeMdat": true,
+      "fullDecodePassed": true,
+      "metadataContainsNoPrivatePaths": true
+    },
+    {
+      "file": "2026-10-23-submission-demo-Codex.mp4",
+      "sha256": "9262a847a36fe104bf2534f40dd83a57b906c0fbbaeb9caff030485912473e69",
+      "bytes": 1501829,
+      "width": 1280,
+      "height": 720,
+      "frames": 699,
+      "fps": 12,
+      "durationSeconds": 58.25,
+      "oneSilentH264Stream": true,
+      "faststartMoovBeforeMdat": true,
+      "fullDecodePassed": true,
+      "metadataContainsNoPrivatePaths": true
+    }
+  ],
+  "presentationTimeline": [
+    {
+      "section": "Result first",
+      "frames": 98,
+      "kind": "actual model outputs,2complete loops",
+      "startFrame": 0,
+      "startSeconds": 0.0,
+      "endFrameExclusive": 98,
+      "endSeconds": 8.166666666666666
+    },
+    {
+      "section": "inputs",
+      "frames": 84,
+      "kind": "disclosed presentation card",
+      "startFrame": 98,
+      "startSeconds": 8.166666666666666,
+      "endFrameExclusive": 182,
+      "endSeconds": 15.166666666666666
+    },
+    {
+      "section": "crop",
+      "frames": 108,
+      "kind": "actual UI still",
+      "startFrame": 182,
+      "startSeconds": 15.166666666666666,
+      "endFrameExclusive": 290,
+      "endSeconds": 24.166666666666668
+    },
+    {
+      "section": "complete",
+      "frames": 96,
+      "kind": "actual UI still",
+      "startFrame": 290,
+      "startSeconds": 24.166666666666668,
+      "endFrameExclusive": 386,
+      "endSeconds": 32.166666666666664
+    },
+    {
+      "section": "recipe",
+      "frames": 96,
+      "kind": "disclosed presentation card",
+      "startFrame": 386,
+      "startSeconds": 32.166666666666664,
+      "endFrameExclusive": 482,
+      "endSeconds": 40.166666666666664
+    },
+    {
+      "section": "router",
+      "frames": 84,
+      "kind": "actual UI still",
+      "startFrame": 482,
+      "startSeconds": 40.166666666666664,
+      "endFrameExclusive": 566,
+      "endSeconds": 47.166666666666664
+    },
+    {
+      "section": "limits",
+      "frames": 84,
+      "kind": "disclosed presentation card",
+      "startFrame": 566,
+      "startSeconds": 47.166666666666664,
+      "endFrameExclusive": 650,
+      "endSeconds": 54.166666666666664
+    },
+    {
+      "section": "Final motion + repository",
+      "frames": 49,
+      "kind": "actual model outputs,1complete take",
+      "startFrame": 650,
+      "startSeconds": 54.166666666666664,
+      "endFrameExclusive": 699,
+      "endSeconds": 58.25
+    }
+  ],
+  "presentationNote": "Silent actual local outputs, actual application screenshot stills and explicitly labelled presentation cards. The film is not a continuous screen recording. Comparison and vertical exports repeat the same complete49-frame take three times at normal12fps; no additional generated motion, interpolation or restoration. The take counter is illustrative, not real usage or popularity.",
+  "parentMediaReview": {
+    "date": "2026-10-23",
+    "evidence": "Inspected full-size comparison poster, encoded social first/middle/end and film first/section boundaries/late/end frames; private all49-frame source/output comparison reviewed separately. Complete video decode validated. No audio track."
+  },
+  "portableProjectExports": [
+    {
+      "file": "examples/2026-10-23-local-cast-projects-Codex/2026-10-23-nova-project-Codex.zip",
+      "bytes": 765577,
+      "sha256": "5bf413ad157fb26686944ec317fc1b7b496beefb7d24106bc8226f25ffdc471f",
+      "integrity": "Original/prepared input and output bytes checked against actual saved manifests. Portable graph input names inspected. Not reexecuted in this release check."
+    },
+    {
+      "file": "examples/2026-10-23-local-cast-projects-Codex/2026-10-23-rowan-project-Codex.zip",
+      "bytes": 841690,
+      "sha256": "10d3bc8e79ecb55b288ba2690e5a12bf762de09cf4ef51c7b9a3eb12692a3327",
+      "integrity": "Original/prepared input and output bytes checked against actual saved manifests. Portable graph input names inspected. Not reexecuted in this release check."
+    }
+  ]
+}

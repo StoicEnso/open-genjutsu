@@ -2,13 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent, ReactNode } from 'react';
 import {
   ArrowDownToLine, ArrowLeft, ArrowUpRight, Check, ChevronDown, CircleHelp,
-  Clapperboard, Code2, Film, FolderOpen, GitBranch, ImagePlus, LoaderCircle,
+  Clapperboard, Cloud, Code2, Film, FolderOpen, GitBranch, ImagePlus, LoaderCircle, Monitor,
   Pause, Play, Plus, RefreshCw, ScanFace, Settings2, SlidersHorizontal,
   Sparkles, Upload, X,
 } from 'lucide-react';
 import type { Asset, BackendStatus, CropRegion, Job, JobManifest, Settings, WorkflowPack } from '../shared/types';
 import { api, formatBytes, formatDuration } from './api';
 import { CropEditor } from './CropEditor';
+import { AssetInput } from './AssetInput';
+import { Modal } from './Modal';
+import { CloudStudio } from './CloudStudio';
 import { sourceCanvas, squareCrop, workflowDefaults } from './workflow-controls';
 
 type View = 'studio' | 'library' | 'workflows';
@@ -20,6 +23,7 @@ const activeStatuses = new Set(['queued', 'uploading', 'running']);
 
 export default function App() {
   const [view, setView] = useState<View>('studio');
+  const [renderEngine, setRenderEngine] = useState<'local' | 'cloud'>('local');
   const [mode, setMode] = useState<Mode>('recast');
   const [source, setSource] = useState<Asset>();
   const [characters, setCharacters] = useState<Asset[]>([]);
@@ -172,7 +176,7 @@ export default function App() {
       setWidth(job.parameters.width ?? defaults.width); setHeight(job.parameters.height ?? defaults.height); setFrames(job.parameters.frames ?? defaults.frames);
       setFps(manifest.preprocessing?.fps ?? job.parameters.fps ?? defaults.fps); setStartSeconds(manifest.preprocessing?.startSeconds ?? job.parameters.startSeconds ?? 0);
       setMotionStrength(job.parameters.motionStrength ?? defaults.motionStrength);
-      setWorkflowId(job.workflowId); setSelectedJobId(job.id); setMode('recast'); setView('studio');
+      setWorkflowId(job.workflowId); setSelectedJobId(job.id); setMode('recast'); setRenderEngine('local'); setView('studio');
     } catch (cause) { setError((cause as Error).message); }
   }
 
@@ -227,7 +231,7 @@ export default function App() {
       <div className="rail-bottom">
         <a className="nav-button" href="https://github.com/StoicEnso/open-genjutsu" target="_blank" rel="noreferrer" aria-label="Source on GitHub"><Code2 /><span>Source</span></a>
         <NavButton onClick={() => { setSettingsDraft(settings); setSettingsOpen(true); }} icon={<Settings2 />} label="Engine" />
-        <span className="version">v0.2</span>
+        <span className="version">v0.3</span>
       </div>
     </aside>
 
@@ -236,9 +240,9 @@ export default function App() {
         <div className="wordmark">OPEN GENJUTSU <span className="alpha">EARLY BUILD</span></div>
         <div className="topbar-actions">
           {activeJobCount > 0 && <button className="queue-pill" onClick={() => setView('library')}><LoaderCircle className="spin" size={13} />{activeJobCount} in queue</button>}
-          <button className={`engine-pill ${backend?.ready ? 'online' : ''}`} onClick={() => { setSettingsDraft(settings); setSettingsOpen(true); }}>
+          {renderEngine === 'cloud' ? <span className="engine-pill cloud-mode-pill"><Cloud size={13} />Cloud mode · BYOK</span> : <button className={`engine-pill ${backend?.ready ? 'online' : ''}`} onClick={() => { setSettingsDraft(settings); setSettingsOpen(true); }}>
             <span className="status-dot" />{!apiOnline ? 'App server offline' : backend?.ready ? 'Engine ready' : backend?.connected ? 'Setup required' : 'Connect engine'}<ChevronDown size={12} />
-          </button>
+          </button>}
           <span className="local-tag">LOCAL WORKSPACE</span>
         </div>
       </header>
@@ -246,7 +250,10 @@ export default function App() {
       {error && <div className="banner error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><X size={16} /></button></div>}
       {!apiOnline && <div className="banner error" role="status">The local app server is unavailable. Start it with <code>npm run dev</code> or reopen the Mac app.<button onClick={() => void refresh()}><RefreshCw size={14} />Retry</button></div>}
 
-      {view === 'studio' && <div className="studio-layout">
+      {view === 'studio' && <div className="render-engine-choice" aria-label="Render location"><span>Render with</span><div><button type="button" aria-pressed={renderEngine === 'local'} onClick={() => setRenderEngine('local')}><Monitor size={14} /><strong>Local</strong><small>Your Comfy engine</small></button><button type="button" aria-pressed={renderEngine === 'cloud'} onClick={() => setRenderEngine('cloud')}><Cloud size={14} /><strong>Comfy Router</strong><small>Optional · uses Comfy credits</small></button></div></div>}
+      {view === 'studio' && renderEngine === 'cloud' && <CloudStudio />}
+
+      {view === 'studio' && renderEngine === 'local' && <div className="studio-layout">
         <main className="workspace">
           <div className="workspace-heading">
             <div><div className="eyebrow">MOTION IN. NEW POSSIBILITIES OUT.</div><h1>{selectedJob ? 'Your take, reimagined.' : 'Give your motion a new cast.'}</h1></div>
@@ -341,14 +348,14 @@ export default function App() {
       </div>}
 
       {view === 'library' && <main className="full-page">
-        <div className="page-heading"><div><div className="eyebrow">SAVED IN THIS WORKSPACE</div><h1>Your takes</h1><p>Reopen a job with its original inputs, settings, and output.</p></div><button className="primary-small" onClick={() => setView('studio')}><Plus size={15} />New take</button></div>
+        <div className="page-heading"><div><div className="eyebrow">SAVED IN THIS WORKSPACE</div><h1>Your local takes</h1><p>Reopen a local job with its original inputs, settings, and output. <button className="inline-link" onClick={() => { setRenderEngine('cloud'); setView('studio'); }}>View cloud takes<ArrowUpRight size={12} /></button></p></div><button className="primary-small" onClick={() => { setRenderEngine('local'); setView('studio'); }}><Plus size={15} />New local take</button></div>
         {!jobs.length ? <EmptyState icon={<FolderOpen size={30} />} title="Your first take starts here." description="Rendered and failed jobs both keep their recipes, so you can learn from each attempt." action={<button className="quiet-button" onClick={() => setView('studio')}>Open studio<ArrowUpRight size={15} /></button>} /> : <div className="job-grid">{jobs.map(job => <button className="job-card" data-job-id={job.id} key={job.id} onClick={() => void reopen(job)}><div className="job-thumbnail">{job.outputs[0]?.thumbnailUrl ? <img src={job.outputs[0].thumbnailUrl} alt="" /> : <Film size={32} />}<span className={`job-status ${job.status}`}>{activeStatuses.has(job.status) && <LoaderCircle size={12} className="spin" />}{statusLabel(job.status)}</span></div><div className="job-card-info"><strong>{job.workflowName}</strong><ArrowUpRight size={16} /><span>{new Date(job.createdAt).toLocaleString()}</span><span>{job.parameters.width && job.parameters.height ? `${job.parameters.width} × ${job.parameters.height} · ` : 'Saved canvas · '}{job.parameters.frames ?? 'Workflow'} frames{job.parameters.motionStrength !== undefined ? ` · Motion ${Math.round(job.parameters.motionStrength * 100)}%` : job.parameters.seed !== undefined ? ` · Seed ${job.parameters.seed}` : ''}</span></div></button>)}</div>}
       </main>}
 
       {view === 'workflows' && <main className="full-page">
         <div className="page-heading"><div><div className="eyebrow">OPEN BY DESIGN</div><h1>Nothing behind the curtain.</h1><p>Inspect the graph that runs your render. Import your own workflow pack.</p></div><button className="primary-small" onClick={() => importInput.current?.click()}><Upload size={15} />Import pack</button></div>
         <input type="file" ref={importInput} hidden accept=".json,application/json" onChange={event => void importWorkflow(event)} />
-        <div className="workflow-list">{workflows.map(pack => <article className="workflow-card" key={pack.id}><div className="workflow-card-icon"><GitBranch size={25} /></div><div><div className="workflow-card-title"><h2>{pack.name}</h2><span className="outline-tag">{pack.license ? 'License included' : 'Check license'}</span></div><p>{pack.description}</p><div className="workflow-card-meta"><span>{Object.keys(pack.graph).length} nodes</span><span>{pack.outputNodeIds.length} output{pack.outputNodeIds.length === 1 ? '' : 's'}</span><span>Comfy SDK</span></div></div><div className="workflow-card-actions"><button className="quiet-button" onClick={() => setWorkflowInspect(pack)}><Code2 size={14} />Inspect</button><button className="primary-small" onClick={() => { setWorkflowId(pack.id); setRestoredJobId(undefined); setRestoredManifest(undefined); setSelectedJobId(undefined); setView('studio'); }}>Use workflow<ArrowUpRight size={14} /></button></div></article>)}</div>
+        <div className="workflow-list">{workflows.map(pack => <article className="workflow-card" key={pack.id}><div className="workflow-card-icon"><GitBranch size={25} /></div><div><div className="workflow-card-title"><h2>{pack.name}</h2><span className="outline-tag">{pack.license ? 'License included' : 'Check license'}</span></div><p>{pack.description}</p><div className="workflow-card-meta"><span>{Object.keys(pack.graph).length} nodes</span><span>{pack.outputNodeIds.length} output{pack.outputNodeIds.length === 1 ? '' : 's'}</span><span>Comfy SDK</span></div></div><div className="workflow-card-actions"><button className="quiet-button" onClick={() => setWorkflowInspect(pack)}><Code2 size={14} />Inspect</button><button className="primary-small" onClick={() => { setWorkflowId(pack.id); setRestoredJobId(undefined); setRestoredManifest(undefined); setSelectedJobId(undefined); setRenderEngine('local'); setView('studio'); }}>Use workflow<ArrowUpRight size={14} /></button></div></article>)}</div>
         <div className="import-help"><CircleHelp size={18} /><div><strong>Bring your own Comfy workflow</strong><p>A workflow pack contains an API-format graph, input bindings, output node IDs, and provenance. Unreviewed custom nodes and paid API nodes are blocked in this early build.</p><a href="https://github.com/StoicEnso/open-genjutsu#workflow-packs" target="_blank" rel="noreferrer">View the pack format<ArrowUpRight size={13} /></a></div></div>
       </main>}
 
@@ -366,7 +373,7 @@ export default function App() {
       <label className="modal-field">Comfy API proxy address<input value={settingsDraft.proxyUrl} onChange={event => setSettingsDraft(previous => ({ ...previous, proxyUrl: event.target.value }))} type="url" spellCheck={false} /></label>
       <div className="setup-steps"><div><span>1</span><div><strong>Start your local ComfyUI</strong><code>python main.py --listen 127.0.0.1</code></div></div><div><span>2</span><div><strong>Start the SDK adapter</strong><code>comfy-api-proxy run --comfyui http://127.0.0.1:8188</code></div></div><div><span>3</span><div><strong>Install the workflow’s models</strong><p>Read the pack’s requirements before downloading. No automatic paid cloud fallback.</p></div></div></div>
       <div className="connection-details"><div><span>ComfyUI</span><StatusChip ready={Boolean(backend?.connected)} /></div><div><span>SDK proxy</span><StatusChip ready={Boolean(backend?.proxyConnected)} /></div>{backend?.missingNodes.length ? <p>Missing nodes: {backend.missingNodes.join(', ')}</p> : null}{backend?.missingModels.length ? <p>Missing models: {backend.missingModels.join(', ')}</p> : null}{backend?.blockedNodes.length ? <p>Blocked nodes: {backend.blockedNodes.join(', ')}</p> : null}{backend?.error && <p>{backend.error}</p>}</div>
-      <p className="field-hint">This early build connects to local addresses only. Remote servers and provider BYOK are not enabled yet.</p>
+      <p className="field-hint">These addresses connect to your local engine only. To use your Comfy API key, choose Comfy Router in the studio. Cloud rendering always needs a separate price review.</p>
       {error && <p className="inline-error" role="alert">{error}</p>}
       <div className="modal-actions"><button className="quiet-button" onClick={() => void refresh()}><RefreshCw size={14} />Check again</button><button className="primary-small" disabled={busy} onClick={() => void saveSettings()}>{busy && <LoaderCircle size={14} className="spin" />}Save engine</button></div>
     </Modal>}
@@ -411,23 +418,6 @@ function UploadStage({ onUpload, onError }: { onUpload: (file: File) => Promise<
   </div>;
 }
 
-function AssetInput({ kind, asset, onUpload, onRemove, onError }: { kind: 'video' | 'image'; asset?: Asset; onUpload: (file: File) => Promise<Asset>; onRemove?: () => void; onError: (message: string) => void }) {
-  const input = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  async function accept(file?: File) {
-    if (!file) return;
-    setBusy(true);
-    try { await onUpload(file); } catch (cause) { onError((cause as Error).message); } finally { setBusy(false); }
-  }
-  return <div className={`asset-input ${asset ? 'filled' : ''}`} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void accept(event.dataTransfer.files[0]); }}>
-    <button className="asset-upload" disabled={busy} onClick={() => input.current?.click()}>
-      {asset ? <><div className="asset-thumb">{(asset.thumbnailUrl || kind === 'image') ? <img src={asset.thumbnailUrl || asset.url} alt="" /> : <Film size={20} />}</div><span><strong>{asset.name}</strong><small>{asset.width} × {asset.height} · {kind === 'video' ? formatDuration(asset.duration) : formatBytes(asset.bytes)}</small></span></> : <><span className="asset-empty-icon">{busy ? <LoaderCircle className="spin" size={19} /> : kind === 'video' ? <Film size={19} /> : <ImagePlus size={19} />}</span><span><strong>{busy ? 'Preparing file…' : kind === 'video' ? 'Add driving video' : 'Add character image'}</strong><small>{kind === 'video' ? 'Drop a clip or browse' : 'PNG, JPG, WEBP'}</small></span><Plus size={16} /></>}
-    </button>
-    {asset && <button className="remove-asset" aria-label={`Remove ${asset.name}`} onClick={onRemove}><X size={13} /></button>}
-    <input ref={input} hidden type="file" accept={kind === 'video' ? 'video/mp4,video/quicktime,video/webm' : 'image/png,image/jpeg,image/webp'} onChange={event => { void accept(event.target.files?.[0]); event.target.value = ''; }} />
-  </div>;
-}
-
 function Comparison({ source, sourcePoster, output, outputPoster, initialDuration = 0, mode }: { source: string; sourcePoster?: string; output: string; outputPoster?: string; initialDuration?: number; mode: 'split' | 'wipe' }) {
   const original = useRef<HTMLVideoElement>(null);
   const result = useRef<HTMLVideoElement>(null);
@@ -466,12 +456,6 @@ function EmptyState({ icon, title, description, action }: { icon: ReactNode; tit
 }
 
 function StatusChip({ ready }: { ready: boolean }) { return <span className={`status-chip ${ready ? 'ready' : ''}`}><span className="status-dot" />{ready ? 'Connected' : 'Offline'}</span>; }
-
-function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => dialog?.close(); }, []);
-  return <dialog ref={ref} className={`modal ${wide ? 'wide' : ''}`} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === ref.current) { const box = ref.current.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) onClose(); } }}><div className="modal-title"><h2>{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={onClose}><X size={18} /></button></div>{children}</dialog>;
-}
 
 function statusLabel(status: Job['status']) {
   return ({ queued: 'Queued', uploading: 'Preparing inputs', running: 'Rendering', succeeded: 'Complete', failed: 'Render failed', cancelled: 'Cancelled', interrupted: 'Interrupted' })[status];

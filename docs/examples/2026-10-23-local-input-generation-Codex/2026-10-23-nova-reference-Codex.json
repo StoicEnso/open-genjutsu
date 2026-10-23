@@ -1,0 +1,124 @@
+{
+  "4": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "wan2.1_vace_1.3B_fp16.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "5": {
+    "class_type": "CLIPLoaderGGUF",
+    "inputs": {
+      "clip_name": "umt5-xxl-encoder-Q4_K_M.gguf",
+      "type": "wan"
+    }
+  },
+  "6": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "Wan2_1_VAE_bf16.safetensors"
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "5",
+        0
+      ],
+      "text": "Photorealistic studio casting headshot of one entirely fictional adult woman aged twenty-eight, rich medium-brown skin, freckles, short cobalt blue bob with short bangs above eyebrows, dark brown eyes, terracotta red crew neck top. Symmetric face straight toward camera, both eyes open, neutral relaxed closed mouth. Complete hair, chin and upper shoulders visible with generous space around head, soft even neutral daylight, plain warm grey background. Sharp natural skin texture, realistic proportions, one person."
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "5",
+        0
+      ],
+      "text": "blurry, distorted face, deformed anatomy, extra person, text, watermark, cropped head, large head turn, hands, makeup, painting, illustration"
+    }
+  },
+  "10": {
+    "class_type": "WanVaceToVideo",
+    "inputs": {
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "8",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ],
+      "width": 512,
+      "height": 512,
+      "length": 1,
+      "batch_size": 1,
+      "strength": 0
+    }
+  },
+  "11": {
+    "class_type": "ModelSamplingSD3",
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "shift": 8
+    }
+  },
+  "12": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "11",
+        0
+      ],
+      "seed": 2026102301,
+      "steps": 28,
+      "cfg": 6,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "10",
+        2
+      ],
+      "denoise": 1
+    }
+  },
+  "14": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ]
+    }
+  },
+  "16": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "14",
+        0
+      ],
+      "filename_prefix": "2026-10-23-local-nova-reference-Codex"
+    }
+  }
+}
