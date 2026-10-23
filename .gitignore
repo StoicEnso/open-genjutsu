@@ -11,3 +11,10 @@ release/
 coverage/
 test-results/
 playwright-report/
+
+__pycache__/
+*.pyc
+# Installed portrait source and weights belong to the Comfy runtime, never this repo.
+comfy_nodes/open_genjutsu_portrait/vendor/
+comfy_nodes/open_genjutsu_portrait/models/
+comfy_nodes/open_genjutsu_portrait/installation.json

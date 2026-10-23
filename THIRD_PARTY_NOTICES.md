@@ -22,3 +22,21 @@ The Open Genjutsu application is MIT licensed. Dependencies retain their origina
 Do not assume an npm wrapper's license applies to a downloaded binary, or that a quantized weight file changes the upstream model's terms. In particular, the macOS ARM binary supplied by ffmpeg-static b6.1.1 was inspected during development, found configured with `--enable-nonfree`, and excluded from the distributable application.
 
 No model weights, Higgsfield code bundles, third-party demonstration clips, or account credentials are included.
+
+## LivePortrait portrait adapter (added 23 October 2026)
+
+The optional portrait workflow uses Kuaishou's LivePortrait core, pinned to source
+`9b294b3d0536135442ea73cb01e6cb3ca7029dd3` and five core weights at
+`KlingTeam/LivePortrait` revision `82a4fa6735ca58432b6ce39301b4b9ee066dea47`.
+The upstream MIT notice is retained in
+`comfy_nodes/open_genjutsu_portrait/THIRD_PARTY_LICENSE.txt` and in the installed
+core source. Its separate restriction on InsightFace pretrained models is
+explicit: this adapter neither installs nor imports InsightFace, the automatic
+cropper, a face detector, external landmark weights, or animal models. It calls
+LivePortraitWrapper with user-selected crops. Code and weights are fetched only
+by the explicit installer, verified, and placed in the user's Comfy runtime.
+No model weights or upstream source tree are included in this Git repository.
+
+OpenCV headless is an optional runtime dependency; its Apache-2.0 license and
+third-party binary notices apply independently. The existing ComfyUI environment
+provides Torch, NumPy, SciPy, PyYAML and rich under their own licenses.

@@ -13,7 +13,7 @@ export function localComfy(settings: Settings, transport?: FetchLike): Comfy {
     process.env.COMFY_BASE_URL = localUrl(settings.proxyUrl);
     delete process.env.COMFY_API_KEY;
     // Constructor reads env synchronously. No await occurs inside this scoped change.
-    return new Comfy({ clientInfo: 'open-genjutsu/0.1.0', timeoutMs: 15000, fetch: cappedFetch(guardedFetch(settings.proxyUrl, transport)) });
+    return new Comfy({ clientInfo: 'open-genjutsu/0.2.0', timeoutMs: 15000, fetch: cappedFetch(guardedFetch(settings.proxyUrl, transport)) });
   } finally {
     if (previousUrl === undefined) delete process.env.COMFY_BASE_URL; else process.env.COMFY_BASE_URL = previousUrl;
     if (previousKey === undefined) delete process.env.COMFY_API_KEY; else process.env.COMFY_API_KEY = previousKey;

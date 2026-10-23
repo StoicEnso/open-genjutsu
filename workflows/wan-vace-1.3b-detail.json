@@ -259,8 +259,6 @@
     "ggufNodes": "https://github.com/city96/ComfyUI-GGUF",
     "ggufLicense": "https://github.com/city96/ComfyUI-GGUF/blob/main/LICENSE",
     "notes": [
-      "Local inference benchmark pending; source-verified wiring is not proof of execution.",
-      "Normalize source to24fps, max17frames and max480px for the initial preview before upload; GetVideoComponents otherwise decodes the whole source.",
       "VACE 1.3B checkpoint is4.31GB, not merely the base T2V1.3B2.84GB. Encoder3.66GB and VAE0.254GB give about8.22GB download; activations/OS require additional RAM.",
       "A four-step base-model sample without a verified compatible acceleration LoRA is an under-sampled smoke test, not evidence of final quality. Use a separate20\u201330step acceptance render after the memory/runtime gate.",
       "Full-frame Canny control preserves structural cues, not source pixels or guaranteed identity. This is not face-swap and is not proven full-character Genjutsu parity.",
@@ -295,10 +293,16 @@
       }
     ],
     "testStatus": {
-      "schemas": "Verified against runningComfy0.42.0object_info2026-10-21",
-      "generation": "Pending modeldownload andactualVACErender",
-      "sdk": "OfficialPythonSDK/proxyimage andvideo roundtripsucceeded; no diffusionclaim"
-    }
+      "schemas": "Exercised against pinnedComfyUI0.42.0",
+      "generation": "Real21October illustrated reference-conditioned generation succeeded at256square17frames; this does not establish humanrecastingquality.",
+      "sdk": "Official NodeSDK/proxy fullappgeneration andexportverified."
+    },
+    "revisions": [
+      {
+        "date": "2026-10-23",
+        "change": "Reconciled old pending-generation metadata with actual21October execution evidence. New app preparation contains source/reference on matching canvases and retains fixed24fps for this legacyprofile."
+      }
+    ]
   },
   "metadata": {
     "sampling": "20-step quality evaluation; direct four-step benchmark does not validate this preset."

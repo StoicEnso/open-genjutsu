@@ -1,0 +1,306 @@
+{
+  "id": "wan-vace-human-quality",
+  "name": "VACE 1.3B \u2014 Painted Portrait Study",
+  "description": "A local Van Gogh portrait study with a muted oil-paint prompt and matched performance framing. Actual human head turns work; reference identity, paint texture and facial features still drift. Experimental global resynthesis.",
+  "license": "MIT (this workflow pack); Wan/VACE model and ComfyUI-GGUF Apache-2.0; ComfyUI GPL-3.0",
+  "graph": {
+    "1": {
+      "class_type": "LoadVideo",
+      "inputs": {
+        "file": "source.mp4"
+      }
+    },
+    "2": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "reference.png"
+      }
+    },
+    "3": {
+      "class_type": "GetVideoComponents",
+      "inputs": {
+        "video": [
+          "1",
+          0
+        ]
+      }
+    },
+    "4": {
+      "class_type": "UNETLoader",
+      "inputs": {
+        "unet_name": "wan2.1_vace_1.3B_fp16.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    "5": {
+      "class_type": "CLIPLoaderGGUF",
+      "inputs": {
+        "clip_name": "umt5-xxl-encoder-Q4_K_M.gguf",
+        "type": "wan"
+      }
+    },
+    "6": {
+      "class_type": "VAELoader",
+      "inputs": {
+        "vae_name": "Wan2_1_VAE_bf16.safetensors"
+      }
+    },
+    "7": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "5",
+          0
+        ],
+        "text": "A restrained oil-on-canvas portrait of the man in the reference image. Slender face, pale olive skin, short ochre beard, ginger hair, calm natural blue eyes. He wears a plain slate-blue painter smock over a pale shirt. He gently turns his head toward the viewer, following the driving performance. Subdued slate blue, gray, muted yellow ochre and olive colors. Fine visible dry brush strokes on matte canvas, soft even lighting, a quiet muted blue painted background. One man, same medium close-up framing throughout."
+      }
+    },
+    "8": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "clip": [
+          "5",
+          0
+        ],
+        "text": "blurry, distorted anatomy, extra limbs, text, watermark"
+      }
+    },
+    "9": {
+      "class_type": "Canny",
+      "inputs": {
+        "image": [
+          "3",
+          0
+        ],
+        "low_threshold": 0.18,
+        "high_threshold": 0.35
+      }
+    },
+    "10": {
+      "class_type": "WanVaceToVideo",
+      "inputs": {
+        "positive": [
+          "7",
+          0
+        ],
+        "negative": [
+          "8",
+          0
+        ],
+        "vae": [
+          "6",
+          0
+        ],
+        "width": 256,
+        "height": 448,
+        "length": 33,
+        "batch_size": 1,
+        "strength": 0.8,
+        "control_video": [
+          "9",
+          0
+        ],
+        "reference_image": [
+          "2",
+          0
+        ]
+      }
+    },
+    "11": {
+      "class_type": "ModelSamplingSD3",
+      "inputs": {
+        "model": [
+          "4",
+          0
+        ],
+        "shift": 8
+      }
+    },
+    "12": {
+      "class_type": "KSampler",
+      "inputs": {
+        "model": [
+          "11",
+          0
+        ],
+        "seed": 42,
+        "steps": 28,
+        "cfg": 4,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "positive": [
+          "10",
+          0
+        ],
+        "negative": [
+          "10",
+          1
+        ],
+        "latent_image": [
+          "10",
+          2
+        ],
+        "denoise": 1
+      }
+    },
+    "13": {
+      "class_type": "TrimVideoLatent",
+      "inputs": {
+        "samples": [
+          "12",
+          0
+        ],
+        "trim_amount": [
+          "10",
+          3
+        ]
+      }
+    },
+    "14": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "13",
+          0
+        ],
+        "vae": [
+          "6",
+          0
+        ]
+      }
+    },
+    "15": {
+      "class_type": "CreateVideo",
+      "inputs": {
+        "images": [
+          "14",
+          0
+        ],
+        "fps": 16
+      }
+    },
+    "16": {
+      "class_type": "SaveVideo",
+      "inputs": {
+        "video": [
+          "15",
+          0
+        ],
+        "filename_prefix": "open-genjutsu/human-performance-study",
+        "format": "auto",
+        "codec": "auto"
+      }
+    }
+  },
+  "bindings": {
+    "sourceVideo": {
+      "nodeId": "1",
+      "input": "file"
+    },
+    "referenceImage": {
+      "nodeId": "2",
+      "input": "image"
+    },
+    "prompt": {
+      "nodeId": "7",
+      "input": "text"
+    },
+    "seed": {
+      "nodeId": "12",
+      "input": "seed"
+    },
+    "width": {
+      "nodeId": "10",
+      "input": "width"
+    },
+    "height": {
+      "nodeId": "10",
+      "input": "height"
+    },
+    "frames": {
+      "nodeId": "10",
+      "input": "length"
+    }
+  },
+  "outputNodeIds": [
+    "16"
+  ],
+  "requires": {
+    "nodes": [
+      "LoadVideo",
+      "LoadImage",
+      "GetVideoComponents",
+      "UNETLoader",
+      "CLIPLoaderGGUF",
+      "VAELoader",
+      "CLIPTextEncode",
+      "Canny",
+      "WanVaceToVideo",
+      "ModelSamplingSD3",
+      "KSampler",
+      "TrimVideoLatent",
+      "VAEDecode",
+      "CreateVideo",
+      "SaveVideo"
+    ],
+    "models": [
+      "wan2.1_vace_1.3B_fp16.safetensors",
+      "umt5-xxl-encoder-Q4_K_M.gguf",
+      "Wan2_1_VAE_bf16.safetensors"
+    ]
+  },
+  "provenance": {
+    "created": "2026-10-23",
+    "adapter": "Independent local performance-study graph using nativeVACE and Apache-licensed GGUFencoder. Prepared source and reference use matching contain/pad canvases; no hidden center crop.",
+    "docs": "https://docs.comfy.org/tutorials/video/wan/vace",
+    "modelCard": "https://huggingface.co/Wan-AI/Wan2.1-VACE-1.3B",
+    "repackagedModel": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+    "nativeNodes": "https://github.com/Comfy-Org/ComfyUI/blob/master/comfy_extras/nodes_wan.py",
+    "ggufNodes": "https://github.com/city96/ComfyUI-GGUF",
+    "ggufLicense": "https://github.com/city96/ComfyUI-GGUF/blob/main/LICENSE",
+    "notes": [
+      "Run real human footage and inspect every frame before any quality claim. Source and reference need appropriate usage rights.",
+      "33 frames at16fps spans2.0625seconds. The exact selected source window is retained in the receipt and project.",
+      "No backgroundpixel preservation or photorealistic face identity guarantee. This is a global resynthesis experiment.",
+      "Euler/simple chosen for already verified MPS execution. No speculative FP8 or global memory-watermark bypass.",
+      "Additional sampler steps are an experimental setting, not evidence of quality. Compare actual media."
+    ],
+    "downloads": [
+      {
+        "filename": "wan2.1_vace_1.3B_fp16.safetensors",
+        "directory": "diffusion_models",
+        "bytes": 4309519800,
+        "sha256": "640ccc0577e6a5d4bb15cd91b11b699ef914fc55f126c5a1c544e152130784f2",
+        "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/123acf1cc74bccbb9bfff8ac1ee72edc08c2341d/split_files/diffusion_models/wan2.1_vace_1.3B_fp16.safetensors",
+        "license": "Apache-2.0"
+      },
+      {
+        "filename": "umt5-xxl-encoder-Q4_K_M.gguf",
+        "directory": "text_encoders",
+        "bytes": 3655145312,
+        "sha256": "17cf97a5bbbc60a646d6105b832b6f657ce904a8a1ad970e4b59df0c67584a40",
+        "url": "https://huggingface.co/city96/umt5-xxl-encoder-gguf/resolve/b535255bee98c2b0a59ea7c0ae2dcd0c6657b3b7/umt5-xxl-encoder-Q4_K_M.gguf",
+        "license": "Apache-2.0"
+      },
+      {
+        "filename": "Wan2_1_VAE_bf16.safetensors",
+        "directory": "vae",
+        "bytes": 253806278,
+        "sha256": "1ab9a32cc2c740f6e39d80d367ce5dcc28db8c71b79b28670546b8973e9d75f9",
+        "url": "https://huggingface.co/Comfy-Org/Wan-Animate-2/resolve/e7181fe1896b7f2ce34120d1a3663413548240d7/vae/Wan2_1_VAE_bf16.safetensors",
+        "license": "Apache-2.0"
+      }
+    ],
+    "testStatus": {
+      "schemas": "Existing native node classes exercised locally;16fps preparation contract tested separately.",
+      "generation": "2026-10-23: real adult head-turn33frames16fps256x448 completed throughappSDK, including CFG-only and prompt-only A/B. Muted prompt reduced saturation; likeness/brush texture remainweak. Private benchmark, no public media rights implied."
+    }
+  },
+  "metadata": {
+    "video": {
+      "fps": 16,
+      "fit": "contain"
+    },
+    "sampling": "28-step Euler, CFG4, shift8; Canny0.18/0.35, VACEstrength0.8. Muted Van Gogh prompt tested23Oct; not validated identity replacement."
+  }
+}

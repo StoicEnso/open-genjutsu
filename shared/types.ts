@@ -11,6 +11,8 @@ export interface WorkflowBindings {
   width?: WorkflowBinding;
   height?: WorkflowBinding;
   frames?: WorkflowBinding;
+  fps?: WorkflowBinding;
+  motionStrength?: WorkflowBinding;
 }
 export interface WorkflowPack {
   id: string;
@@ -28,6 +30,8 @@ export interface WorkflowPack {
 }
 export type WorkflowImport = Omit<WorkflowPack, 'id' | 'createdAt' | 'updatedAt'> & { id?: string };
 export interface Settings { comfyUrl: string; proxyUrl: string }
+/** Fractions of the original displayed/autorotated frame, not the padded canvas. */
+export interface CropRegion { x: number; y: number; width: number; height: number }
 export interface Asset {
   id: string;
   name: string;
@@ -37,6 +41,12 @@ export interface Asset {
   width: number;
   height: number;
   duration?: number;
+  fps?: number;
+  frameCount?: number;
+  sampleAspectRatio?: string;
+  codedWidth?: number;
+  codedHeight?: number;
+  rotationDegrees?: number;
   bytes: number;
   mimeType: string;
   createdAt: string;
@@ -54,7 +64,7 @@ export interface BackendStatus {
   media?: { available: boolean; ffmpeg: { available: boolean; path?: string; version?: string; error?: string }; ffprobe: { available: boolean; path?: string; version?: string; error?: string } };
   error?: string;
 }
-export interface JobParameters { prompt?: string; seed?: number; width?: number; height?: number; frames?: number }
+export interface JobParameters { prompt?: string; seed?: number; width?: number; height?: number; frames?: number; startSeconds?: number; fps?: number; motionStrength?: number; sourceCrop?: CropRegion; referenceCrop?: CropRegion }
 export interface JobRequest extends JobParameters { workflowId: string; sourceVideoId: string; referenceImageId: string }
 export interface JobRerunRequest extends JobParameters { sourceVideoId?: string; referenceImageId?: string }
 export type JobStatus = 'queued' | 'uploading' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'interrupted';
@@ -89,7 +99,26 @@ export interface JobManifest {
   referenceSha256: string;
   workflowSha256: string;
   integration: '@comfyorg/sdk@0.5.0 / self-hosted comfy-api-proxy';
-  preprocessing?: { preparedSource: Asset; sha256: string; fps: 24; maxFrames: number; maxDimension: 480; aspect: 'preserved'; audio: 'removed from conditioning preview' };
+  preprocessing?: {
+    preparedSource: Asset;
+    sha256: string;
+    fps: number;
+    maxFrames: number;
+    maxDimension: 480;
+    aspect: 'preserved';
+    audio: 'removed from conditioning preview';
+    /** Added 2026-10-23; absent on legacy receipts. */
+    startSeconds?: number;
+    width?: number;
+    height?: number;
+    frames?: number;
+    fit?: 'contain';
+    upscaling?: false;
+    preparedReference?: Asset;
+    preparedReferenceSha256?: string;
+    sourceCrop?: CropRegion;
+    referenceCrop?: CropRegion;
+  };
   assetBindings?: {
     sourceVideo: { proxyAssetId: string; localAssetId: string; sha256: string; filePath?: string };
     referenceImage: { proxyAssetId: string; localAssetId: string; sha256: string; filePath?: string };

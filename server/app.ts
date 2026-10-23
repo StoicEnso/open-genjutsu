@@ -72,7 +72,7 @@ export async function createApp(options: AppOptions = {}, deferRecovery = false)
   app.use(express.json({ limit: '2mb', strict: true }));
   app.locals.services = { store, media, backend, jobs: queue, close, start: () => { if (!compromised && !closed) queue.start(); } };
   const routeId = (value: unknown): string => idSchema.parse(value);
-  app.get('/api/health', async (_req, res) => { res.json({ ok: true, app: 'Open Genjutsu', version: '0.1.0', mode: 'keyless-local', integration: '@comfyorg/sdk@0.5.0', media: await media.status(), limits: { uploadBytes: MAX_FILE_BYTES, sourceSeconds: 30, previewFrames: 49, previewFps: 24, previewMaxDimension: 480 } }); });
+  app.get('/api/health', async (_req, res) => { res.json({ ok: true, app: 'Open Genjutsu', version: '0.2.0', mode: 'keyless-local', integration: '@comfyorg/sdk@0.5.0', media: await media.status(), limits: { uploadBytes: MAX_FILE_BYTES, sourceSeconds: 30, previewFrames: 49, previewFps: { min: 8, max: 30, default: 'workflow' }, previewMaxDimension: 480 } }); });
   app.get('/api/settings', (_req, res) => { res.json(store.snapshot().settings); });
   app.put('/api/settings', async (req, res) => {
     const input = z.object({ comfyUrl: z.string().max(200), proxyUrl: z.string().max(200) }).strict().parse(req.body);
@@ -109,13 +109,13 @@ export async function createApp(options: AppOptions = {}, deferRecovery = false)
     if (!path.resolve(record.filename).startsWith(path.resolve(store.assetDir) + path.sep)) throw new HttpError(500, 'invalid_asset_record', 'The local asset record is invalid.');
     res.type(record.asset.mimeType);
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(record.asset.name)}`);
-    res.sendFile(record.filename, error => { if (error) next(error); });
+    res.sendFile(path.basename(record.filename), { root: store.assetDir, dotfiles: 'deny' }, error => { if (error) next(error); });
   });
   app.get('/api/assets/:id/thumbnail', (req, res, next) => {
     const record = store.snapshot().assets[routeId(req.params.id)];
     if (!record?.thumbnail) throw new HttpError(404, 'thumbnail_not_found', 'No thumbnail is available.');
     if (!path.resolve(record.thumbnail).startsWith(path.resolve(store.assetDir) + path.sep)) throw new HttpError(500, 'invalid_asset_record', 'The local thumbnail record is invalid.');
-    res.type('image/jpeg').sendFile(record.thumbnail, error => { if (error) next(error); });
+    res.type('image/jpeg').sendFile(path.basename(record.thumbnail), { root: store.assetDir, dotfiles: 'deny' }, error => { if (error) next(error); });
   });
   app.get('/api/workflows', (_req, res) => { res.json(Object.values(store.snapshot().workflows).sort((a,b) => a.name.localeCompare(b.name))); });
   const saveWorkflow = async (body: unknown, forcedId?: string): Promise<WorkflowPack> => {

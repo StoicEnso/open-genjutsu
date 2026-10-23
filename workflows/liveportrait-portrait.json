@@ -1,0 +1,128 @@
+{
+  "id": "liveportrait-portrait",
+  "name": "Portrait Performance \u2014 Local",
+  "description": "Animate a frontal photographic portrait from a square human performance crop. Retains reference appearance in the tested frontal examples; small frontal movements work best. Larger turns, blinks and angled paintings can distort. Portrait output only; no scene or body replacement.",
+  "license": "MIT (workflow, adapter and pinned LivePortrait core/weights); ComfyUI GPL-3.0. No InsightFace code or weights installed.",
+  "graph": {
+    "1": {
+      "class_type": "LoadVideo",
+      "inputs": {
+        "file": "source.mp4"
+      }
+    },
+    "2": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "reference.png"
+      }
+    },
+    "3": {
+      "class_type": "GetVideoComponents",
+      "inputs": {
+        "video": [
+          "1",
+          0
+        ]
+      }
+    },
+    "4": {
+      "class_type": "OpenGenjutsuPortrait",
+      "inputs": {
+        "source_images": [
+          "3",
+          0
+        ],
+        "reference_image": [
+          "2",
+          0
+        ],
+        "model": "LivePortrait MIT core 82a4fa6",
+        "frames": 33,
+        "motion_strength": 0.35
+      }
+    },
+    "5": {
+      "class_type": "CreateVideo",
+      "inputs": {
+        "images": [
+          "4",
+          0
+        ],
+        "fps": 16
+      }
+    },
+    "6": {
+      "class_type": "SaveVideo",
+      "inputs": {
+        "video": [
+          "5",
+          0
+        ],
+        "filename_prefix": "open-genjutsu/portrait-performance",
+        "format": "auto",
+        "codec": "auto"
+      }
+    }
+  },
+  "bindings": {
+    "sourceVideo": {
+      "nodeId": "1",
+      "input": "file"
+    },
+    "referenceImage": {
+      "nodeId": "2",
+      "input": "image"
+    },
+    "frames": {
+      "nodeId": "4",
+      "input": "frames"
+    },
+    "fps": {
+      "nodeId": "5",
+      "input": "fps"
+    },
+    "motionStrength": {
+      "nodeId": "4",
+      "input": "motion_strength"
+    }
+  },
+  "outputNodeIds": [
+    "6"
+  ],
+  "requires": {
+    "nodes": [
+      "LoadVideo",
+      "LoadImage",
+      "GetVideoComponents",
+      "OpenGenjutsuPortrait",
+      "CreateVideo",
+      "SaveVideo"
+    ],
+    "models": [
+      "LivePortrait MIT core 82a4fa6"
+    ]
+  },
+  "provenance": {
+    "created": "2026-10-23",
+    "upstream": "https://github.com/KwaiVGI/LivePortrait",
+    "sourceCommit": "9b294b3d0536135442ea73cb01e6cb3ca7029dd3",
+    "weightRevision": "82a4fa6735ca58432b6ce39301b4b9ee066dea47",
+    "weightsManifest": "scripts/portrait/models.json",
+    "coreOnly": "Direct LivePortraitWrapper. No automatic cropper, InsightFace, detector or external landmark models. Relative keypoint motion plus stitching, global motion gain, 512px decoded portrait.",
+    "qualityEvidence": "2026-10-23 actual app SDK/proxy/Comfy runs: modern frontal human33frames16fpsgain1.0,36.9s; expanded crop rerun33.6s; historicalhuman25frames24fpsgain0.35,26.1s. Same-runtime portable ZIP replay24.7s, all25decodedframes equal, no cachednodes. Eyelid motion transfers approximately; closed eyelids soften/darken. Large-turn painting tests showed ghosting; not universal identity/scene replacement."
+  },
+  "metadata": {
+    "video": {
+      "fps": 16,
+      "width": 256,
+      "height": 256,
+      "fit": "contain"
+    },
+    "portrait": {
+      "requiresCrop": true,
+      "inputPixels": 256,
+      "outputPixels": 512,
+      "motion": "Relative motion scaled by the visible motion amount; no same-amplitude promise."
+    }
+  }
+}
