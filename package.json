@@ -1,6 +1,6 @@
 {
   "name": "open-genjutsu",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "A local-first character recasting studio powered by ComfyUI.",
@@ -15,7 +15,7 @@
     "build": "tsc --noEmit && vite build && tsup server/index.ts --format esm --platform node --target node22 --out-dir dist-server --no-splitting",
     "start": "node dist-server/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test tests/*.test.ts tests/*.test.cjs",
     "desktop": "npm run build && electron .",
     "package:mac": "npm run build && electron-builder --mac dir --arm64 --publish never"
   },

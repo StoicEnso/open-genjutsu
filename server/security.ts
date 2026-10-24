@@ -43,7 +43,10 @@ export function requestGuard(allowedOrigins: string[] = []): RequestHandler {
       try { valid = origin === host.origin || additional.has(new URL(origin).origin) && origin === new URL(origin).origin; } catch { /* rejected below */ }
       if (!valid) return next(new HttpError(403, 'cross_origin', 'Cross-origin access is blocked. Open the local application URL.'));
     }
-    if (req.headers['sec-fetch-site'] === 'cross-site') return next(new HttpError(403, 'cross_site', 'Cross-site access is blocked.'));
+    // Chrome can label opening the local app from another page as cross-site.
+    // Only the inert root HTML document is navigable; APIs and embeds stay denied.
+    const rootDocumentNavigation = req.method === 'GET' && req.path === '/' && req.headers['sec-fetch-mode'] === 'navigate' && req.headers['sec-fetch-dest'] === 'document';
+    if (req.headers['sec-fetch-site'] === 'cross-site' && !rootDocumentNavigation) return next(new HttpError(403, 'cross_site', 'Cross-site access is blocked.'));
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.headers['content-type'] && !/^(application\/json|multipart\/form-data)(;|$)/i.test(req.headers['content-type'])) return next(new HttpError(415, 'unsupported_content_type', 'Use JSON or multipart/form-data.'));
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');

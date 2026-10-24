@@ -8,7 +8,7 @@ import { Backend } from './comfy.js';
 import { HttpError, messageOf } from './errors.js';
 import { Media, MAX_FILE_BYTES } from './media.js';
 import { Store, type StoredJob } from './storage.js';
-import { bindParameters } from './workflows.js';
+import { bindParameters, videoPreparation } from './workflows.js';
 
 const terminal = new Set(['succeeded','failed','cancelled','interrupted']);
 const digest = (value: unknown): string => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -42,6 +42,7 @@ export class Jobs {
     if (!source || source.asset.kind !== 'video' || !reference || reference.asset.kind !== 'image') throw new HttpError(400, 'input_assets', 'Choose an existing source video and reference image.');
     const { workflowId: _workflowId, sourceVideoId: _sourceVideoId, referenceImageId: _referenceImageId, ...parameters } = input;
     const graph = bindParameters(workflow, parameters);
+    videoPreparation(workflow, graph, source.asset, parameters);
     for (const control of ['width','height','frames'] as const) {
       const binding = workflow.bindings[control];
       if (!binding) continue;
@@ -54,7 +55,7 @@ export class Jobs {
     if (!status.ready) throw new HttpError(409, 'workflow_not_ready', 'Connect the local services and resolve the workflow requirements before queuing.', status);
     const id = randomUUID(); const now = new Date().toISOString();
     const job: Job = { id, workflowId: workflow.id, workflowName: workflow.name, sourceVideoId: source.asset.id, referenceImageId: reference.asset.id, parameters, status: 'queued', progress: 0, message: 'Queued for a local preview. No cloud or paid API will be used.', outputs: [], createdAt: now, updatedAt: now, manifestUrl: `/api/jobs/${id}/manifest`, workflowUrl: `/api/jobs/${id}/workflow` };
-    const manifest: JobManifest = { version: 1, app: 'Open Genjutsu', job, workflow, settings, source: source.asset, reference: reference.asset, sourceSha256: source.sha256, referenceSha256: reference.sha256, workflowSha256: digest(graph), integration: '@comfyorg/sdk@0.5.0 / self-hosted comfy-api-proxy', notice: 'Execution manifest, not a claim of character fidelity. Conditioning uses a bounded, aspect-preserving first-49-frame maximum 24fps preview at up to 480px. Original uploads remain intact. Output quality and local model runtime require review.' };
+    const manifest: JobManifest = { version: 1, app: 'Open Genjutsu', job, workflow, settings, source: source.asset, reference: reference.asset, sourceSha256: source.sha256, referenceSha256: reference.sha256, workflowSha256: digest(graph), integration: '@comfyorg/sdk@0.5.0 / self-hosted comfy-api-proxy', notice: 'Execution manifest, not a claim of character fidelity. Only explicitly selected source/reference regions are cropped; omitted regions use the full displayed frame. Fractions refer to the autorotated original before SAR normalization and contain/pad. Prepared inputs use the exact render canvas without detail upscaling. The selected source window, frame rate and named regions are recorded below. Original uploads remain intact. Output quality and local model runtime require review.' };
     await this.store.update(state => { state.jobs[id] = { job, workflow, graph, settings, manifest }; });
     this.kick();
     return job;
@@ -93,16 +94,15 @@ export class Jobs {
         await this.patch(id, value => { value.job.status = 'uploading'; value.job.message = 'Preparing a short source preview and uploading through the local Comfy SDK.'; });
         const source = this.store.snapshot().assets[record.job.sourceVideoId]!;
         const reference = this.store.snapshot().assets[record.job.referenceImageId]!;
-        const frameBinding = record.workflow.bindings.frames;
-        const defaultFrames = frameBinding ? Number(record.graph[frameBinding.nodeId]?.inputs[frameBinding.input]) : 49;
-        const frames = Math.min(49, record.job.parameters.frames ?? (Number.isFinite(defaultFrames) ? defaultFrames : 49));
-        const prepared = await this.media.prepareVideo(source, frames, signal);
-        await this.patch(id, value => { value.manifest.preprocessing = { preparedSource: prepared.asset, sha256: prepared.sha256, fps: 24, maxFrames: frames, maxDimension: 480, aspect: 'preserved', audio: 'removed from conditioning preview' }; });
+        const recipe = videoPreparation(record.workflow, record.graph, source.asset, record.job.parameters);
+        const prepared = await this.media.prepareVideo(source, recipe, signal);
+        const preparedReference = await this.media.prepareReference(reference, recipe, signal);
+        await this.patch(id, value => { value.manifest.preprocessing = { ...recipe, preparedSource: prepared.asset, sha256: prepared.sha256, preparedReference: preparedReference.asset, preparedReferenceSha256: preparedReference.sha256, maxFrames: recipe.frames, maxDimension: 480, aspect: 'preserved', audio: 'removed from conditioning preview' }; });
         // Recheck node/model availability immediately before execution; imported graphs are never trusted as an audit.
         const status = await this.backend.status(record.settings, record.workflow);
         if (!status.ready) throw new HttpError(409, 'workflow_not_ready', 'Workflow requirements changed before execution.', status);
         const sourceRef = await client.assets.fromFile(prepared.filename).asReference(signal);
-        const referenceRef = await client.assets.fromFile(reference.filename).asReference(signal);
+        const referenceRef = await client.assets.fromFile(preparedReference.filename).asReference(signal);
         const graph = structuredClone(record.graph);
         graph[record.workflow.bindings.sourceVideo.nodeId]!.inputs[record.workflow.bindings.sourceVideo.input] = sourceRef as unknown as JsonValue;
         graph[record.workflow.bindings.referenceImage.nodeId]!.inputs[record.workflow.bindings.referenceImage.input] = referenceRef as unknown as JsonValue;
@@ -111,7 +111,7 @@ export class Jobs {
           value.graph = graph; value.manifest.workflowSha256 = digest(graph); value.submissionAttempted = true;
           value.manifest.assetBindings = {
             sourceVideo: { proxyAssetId: sourceRef.info.id, localAssetId: prepared.asset.id, sha256: prepared.sha256, filePath: sourceRef.info.file_path },
-            referenceImage: { proxyAssetId: referenceRef.info.id, localAssetId: reference.asset.id, sha256: reference.sha256, filePath: referenceRef.info.file_path },
+            referenceImage: { proxyAssetId: referenceRef.info.id, localAssetId: preparedReference.asset.id, sha256: preparedReference.sha256, filePath: referenceRef.info.file_path },
           };
         });
         // A durable attempt flag precedes the network call. An ambiguous error is never auto-resubmitted.

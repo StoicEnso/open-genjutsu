@@ -1,0 +1,124 @@
+{
+  "4": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "wan2.1_vace_1.3B_fp16.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "5": {
+    "class_type": "CLIPLoaderGGUF",
+    "inputs": {
+      "clip_name": "umt5-xxl-encoder-Q4_K_M.gguf",
+      "type": "wan"
+    }
+  },
+  "6": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "Wan2_1_VAE_bf16.safetensors"
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "5",
+        0
+      ],
+      "text": "A neutral passport style headshot of one entirely fictional adult man aged forty five, short curly black hair with grey at the temples, closely trimmed salt and pepper beard, medium brown skin, dark brown eyes, plain forest green crew neck shirt. Completely neutral unsmiling expression. Lips relaxed and closed in a flat horizontal line, both corners at the same level as the center of the mouth. Cheeks relaxed, no dimples. Eyebrows level, eyes naturally open and looking straight toward camera. Full forehead and both eyebrows plainly visible, face front on, complete hair, chin and upper shoulders with headroom. Soft neutral frontal daylight, grey blue seamless studio background. Realistic skin texture, no beauty retouching."
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "5",
+        0
+      ],
+      "text": "smile, smiling, smirk, grin, grinning, upturned lip corners, raised cheeks, dimples, teeth, laugh, beauty retouching, text, watermark, illustration, blurry, distorted face"
+    }
+  },
+  "10": {
+    "class_type": "WanVaceToVideo",
+    "inputs": {
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "8",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ],
+      "width": 512,
+      "height": 512,
+      "length": 1,
+      "batch_size": 1,
+      "strength": 0
+    }
+  },
+  "11": {
+    "class_type": "ModelSamplingSD3",
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "shift": 8
+    }
+  },
+  "12": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "11",
+        0
+      ],
+      "seed": 2026102301,
+      "steps": 28,
+      "cfg": 6,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "10",
+        2
+      ],
+      "denoise": 1
+    }
+  },
+  "14": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ]
+    }
+  },
+  "16": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "14",
+        0
+      ],
+      "filename_prefix": "2026-10-23-local-nova-reference-Codex"
+    }
+  }
+}

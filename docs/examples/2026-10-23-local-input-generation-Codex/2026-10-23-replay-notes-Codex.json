@@ -1,0 +1,12 @@
+{
+  "created": "2026-10-23",
+  "description": "NativeComfyAPIgraphs used to generate the public demo inputs locally, text-only, no external media. Separate from the app portrait execution workflow. These are API-format graphs, not importable app workflow packs or Comfy frontend canvas format.",
+  "models": {
+    "diffusion": "wan2.1_vace_1.3B_fp16.safetensors",
+    "encoder": "umt5-xxl-encoder-Q4_K_M.gguf",
+    "vae": "Wan2_1_VAE_bf16.safetensors"
+  },
+  "installation": "See runtime/README.md for pinned Wan runtime and weight hashes. Recasting the supplied demo assets needs only the smaller LivePortrait setup; regenerating these optional inputs needs the larger Wan stack.",
+  "execution": "POST a chosen graph to your loopback ComfyUI /prompt as {\"prompt\": GRAPH}; retain prompt_id and retrieve /history/PROMPT_ID then /view output. No auth or provider key is used. Rendering may take minutes. There are no retries or automatic submissions in these data files.",
+  "scope": "References and driver are fictional synthetic people. Text prompts requested original subjects and did not use a real person reference. No guarantee that synthetic faces are globally unique. The original social trend clip, audio and likeness were not copied."
+}

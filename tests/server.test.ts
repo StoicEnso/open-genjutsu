@@ -13,7 +13,7 @@ import { request } from 'node:http';
 import { discoverMediaBinaries } from '../server/media.js';
 import { startServer } from '../server/app.js';
 import { guardedFetch } from '../server/security.js';
-import { parseWorkflow, auditWorkflow } from '../server/workflows.js';
+import { parseWorkflow, auditWorkflow, cropSchema } from '../server/workflows.js';
 import type { Asset, Job, WorkflowImport, WorkflowGraph } from '../shared/types.js';
 
 const exec = promisify(execFile);
@@ -65,7 +65,7 @@ function fakeBackend(image: Uint8Array, hold = false, unknownOutputSize = false,
     if (url.pathname === '/api/v2/assets/output-asset/content') return new Response(image as BodyInit, { headers: { 'content-type': 'image/png' } });
     throw new Error(`Unexpected protocol request: ${method} ${url.href}`);
   };
-  return { transport, calls, submissions, remoteJobs };
+  return { transport, calls, submissions, remoteJobs, objectInfo };
 }
 async function fixture() {
   const dir = await mkdtemp(path.join(tmpdir(), 'open-genjutsu-protocol-'));
@@ -134,10 +134,13 @@ test('protocol: real SDK asset binding, submit, poll, download and durable repro
     const sourceName = portable['1'].inputs.file; const referenceName = portable['2'].inputs.image;
     assert.equal(typeof sourceName, 'string'); assert.ok(sourceName.startsWith('open-genjutsu-'));
     assert.equal(createHash('sha256').update(entries.get('inputs/'+sourceName)!).digest('hex'), manifest.preprocessing.sha256);
-    assert.equal(createHash('sha256').update(entries.get('inputs/'+referenceName)!).digest('hex'), manifest.referenceSha256);
+    assert.equal(createHash('sha256').update(entries.get('inputs/'+referenceName)!).digest('hex'), manifest.preprocessing.preparedReferenceSha256);
+    assert.equal(createHash('sha256').update(entries.get('originals/reference.png')!).digest('hex'), manifest.referenceSha256);
     assert.equal(createHash('sha256').update(entries.get('originals/source.mp4')!).digest('hex'), manifest.sourceSha256);
     assert.ok(!entries.get('manifest.json')!.toString().includes(f.dir));
     assert.equal(manifest.assetBindings.sourceVideo.sha256, manifest.preprocessing.sha256);
+    assert.equal(manifest.assetBindings.referenceImage.sha256, manifest.preprocessing.preparedReferenceSha256);
+    assert.equal(manifest.preprocessing.fit, 'contain'); assert.equal(manifest.preprocessing.fps, 24);
     const changed = structuredClone(pack); changed.graph['4']!.inputs.filename_prefix = 'updated-global-workflow';
     await fetch(`${base}/api/workflows/${pack.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(changed) });
     await fetch(`${base}/api/settings`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ comfyUrl: 'http://127.0.0.1:8186', proxyUrl: 'http://127.0.0.1:8187' }) });
@@ -181,6 +184,83 @@ test('protocol: owned cancellation and restart recovery never resubmit or interr
   } finally { await instance.close(); await rm(f.dir, { recursive: true, force: true }); }
 });
 
+test('media preparation: portrait framing, chosen start, exact FPS/frames, original hashes and portable inputs', async () => {
+  const f = await fixture(); const tools = await discoverMediaBinaries(binaries); const ffmpeg = tools.ffmpeg.path!;
+  const portrait = path.join(f.dir,'portrait.mp4'); const referencePath = path.join(f.dir,'small-reference.png');
+  await exec(ffmpeg, ['-y','-nostdin','-v','error','-f','lavfi','-i','color=white:s=80x160:r=16:d=3','-vf',"drawbox=x=0:y=0:w=iw:h=12:color=red:t=fill,drawbox=x=0:y=ih-12:w=iw:h=12:color=lime:t=fill,drawbox=x=0:y=40:w=iw:h=40:color=blue:t=fill:enable='gte(t,1)'",'-c:v','libx264','-pix_fmt','yuv420p',portrait]);
+  await exec(ffmpeg, ['-y','-nostdin','-v','error','-f','lavfi','-i','color=yellow:s=32x64','-frames:v','1',referencePath]);
+  const fake = fakeBackend(f.imageBytes);
+  for (const name of ['ImageFromBatch','CreateVideo']) fake.objectInfo[name] = { python_module: 'nodes', api_node: false, input: { required: {} } };
+  const humanPack: WorkflowImport = { ...structuredClone(pack), id: 'human-prep-protocol', graph: { ...structuredClone(graph), '5': { class_type: 'ImageFromBatch', inputs: { image: ['3',0], batch_index: 0, length: 17 } }, '6': { class_type: 'CreateVideo', inputs: { images: ['5',0], fps: 16 } } }, bindings: { ...pack.bindings, frames: { nodeId: '5', input: 'length' } }, metadata: { video: { fps: 16, fit: 'contain' } } };
+  humanPack.graph['3']!.inputs.width = 128; humanPack.graph['3']!.inputs.height = 128;
+  const instance = await startServer({ port: 0, dataDir: f.dataDir, workflowsDir: f.workflowsDir, transport: fake.transport, pollMs: 5, binaries });
+  try {
+    const base = `http://127.0.0.1:${instance.port}`;
+    await fetch(`${base}/api/workflows/import`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(humanPack) });
+    const source = await upload(base, portrait, 'video/mp4'); const reference = await upload(base, referencePath, 'image/png');
+    const payload = { workflowId: humanPack.id, sourceVideoId: source.id, referenceImageId: reference.id, startSeconds: 1, frames: 17 };
+    const response = await fetch(`${base}/api/jobs`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+    assert.equal(response.status,202,await response.clone().text());
+    const job = await response.json() as Job; await waitFor(base,job.id,value => value.status === 'succeeded');
+    const manifest = await (await fetch(`${base}/api/jobs/${job.id}/manifest`)).json(); const prep = manifest.preprocessing;
+    assert.deepEqual([prep.width,prep.height,prep.frames,prep.fps,prep.startSeconds,prep.fit,prep.upscaling],[128,128,17,16,1,'contain',false]);
+    assert.equal(prep.preparedSource.frameCount,17); assert.equal(prep.preparedSource.sampleAspectRatio,'1:1'); assert.equal(prep.preparedSource.fps,16);
+    assert.equal(prep.preparedSource.duration,17/16); assert.equal(prep.preparedReference.width,128); assert.equal(prep.preparedReference.height,128);
+    assert.equal(manifest.source.id,source.id); assert.equal(manifest.reference.id,reference.id);
+    assert.notEqual(prep.preparedReference.id,reference.id); assert.notEqual(prep.preparedReferenceSha256,manifest.referenceSha256);
+    const store = instance.app.locals.services.store.snapshot();
+    const decode = async (filename: string) => (await exec(ffmpeg,['-nostdin','-v','error','-i',filename,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-'],{encoding:'buffer',maxBuffer:1024*1024})).stdout;
+    const pixels = await decode(store.assets[prep.preparedSource.id].filename);
+    const pixel = (bytes: Buffer,x: number,y: number) => [...bytes.subarray((y*128+x)*3,(y*128+x)*3+3)];
+    const head = pixel(pixels,64,4); const feet = pixel(pixels,64,124); const middle = pixel(pixels,64,45);
+    assert.ok(head[0]! > 180 && head[1]! < 80 && head[2]! < 80, 'head marker must survive portrait contain');
+    assert.ok(feet[1]! > 180 && feet[0]! < 80 && feet[2]! < 80, 'feet marker must survive portrait contain');
+    assert.ok(middle[2]! > 180 && middle[0]! < 80, 'first prepared frame must come from the selected blue time window');
+    assert.ok(pixel(pixels,4,64).every(channel => channel < 20), 'side padding must contain, not crop');
+    const referencePixels = await decode(store.assets[prep.preparedReference.id].filename);
+    const center = pixel(referencePixels,64,64); assert.ok(center[0]! > 240 && center[1]! > 240 && center[2]! < 10);
+    assert.deepEqual(pixel(referencePixels,40,64),[0,0,0], 'small reference detail must not be upscaled');
+    const archive = zipEntries(Buffer.from(await (await fetch(`${base}/api/jobs/${job.id}/bundle`)).arrayBuffer()));
+    const portable = JSON.parse(archive.get('portable-workflow-api.json')!.toString());
+    const sha = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+    assert.equal(sha(archive.get('inputs/'+portable['1'].inputs.file)!),prep.sha256);
+    assert.equal(sha(archive.get('inputs/'+portable['2'].inputs.image)!),prep.preparedReferenceSha256);
+    assert.equal(sha(archive.get('originals/reference.png')!),manifest.referenceSha256);
+    assert.equal(sha(archive.get('originals/source.mp4')!),manifest.sourceSha256);
+    for (const invalid of [{...payload,frames:18},{...payload,startSeconds:2.5},{...payload,frames:49},{...payload,fps:24}]) {
+      const rejected = await fetch(`${base}/api/jobs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(invalid)});
+      assert.equal(rejected.status,400,await rejected.clone().text());
+    }
+    assert.equal(fake.submissions.length,1,'invalid windows must be rejected before SDK submission');
+    // A stale or inaccurate container duration still cannot send an incomplete
+    // window to native VACE's neutral-gray padding path.
+    await instance.app.locals.services.store.update((state: {assets: Record<string,{asset:Asset}>}) => { state.assets[source.id]!.asset.duration = 10; });
+    const incomplete = await fetch(`${base}/api/jobs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,startSeconds:2.5})});
+    assert.equal(incomplete.status,202); const incompleteJob = await incomplete.json() as Job;
+    const failed = await waitFor(base,incompleteJob.id,value=>value.status==='failed'); assert.match(failed.error || '',/frames.*required|Move the start/i);
+    assert.equal(fake.submissions.length,1,'decoded frame count must be verified before SDK submission');
+    await instance.app.locals.services.store.update((state: {assets: Record<string,{asset:Asset}>}) => { state.assets[source.id]!.asset.duration = 3; });
+    const flexible = structuredClone(humanPack); flexible.id = 'flexible-fps'; flexible.bindings.fps = {nodeId:'6',input:'fps'};
+    await fetch(`${base}/api/workflows/import`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(flexible)});
+    const flex = await fetch(`${base}/api/jobs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,workflowId:flexible.id,fps:24})});
+    assert.equal(flex.status,202,await flex.clone().text()); const flexJob = await flex.json() as Job;
+    await waitFor(base,flexJob.id,value=>value.status==='succeeded');
+    assert.equal(fake.submissions[1]!.workflow['6']!.inputs.fps,24);
+    const flexManifest = await (await fetch(`${base}/api/jobs/${flexJob.id}/manifest`)).json(); assert.equal(flexManifest.preprocessing.fps,24);
+    const anamorphicPath = path.join(f.dir,'anamorphic.mp4');
+    await exec(ffmpeg,['-y','-nostdin','-v','error','-i',portrait,'-vf','setsar=2/1','-c:v','libx264','-pix_fmt','yuv420p',anamorphicPath]);
+    const anamorphic = await upload(base,anamorphicPath,'video/mp4'); assert.equal(anamorphic.sampleAspectRatio,'2:1');
+    const sarResponse = await fetch(`${base}/api/jobs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,sourceVideoId:anamorphic.id})});
+    assert.equal(sarResponse.status,202,await sarResponse.clone().text()); const sarJob = await sarResponse.json() as Job;
+    await waitFor(base,sarJob.id,value=>value.status==='succeeded');
+    const sarManifest = await (await fetch(`${base}/api/jobs/${sarJob.id}/manifest`)).json();
+    const sarRecord = instance.app.locals.services.store.snapshot().assets[sarManifest.preprocessing.preparedSource.id];
+    const sarPixels = await decode(sarRecord.filename); const sarEdge = pixel(sarPixels,4,45);
+    assert.ok(sarEdge[2]! > 180 && sarEdge[0]! < 80,'2:1 SAR portrait must become a square display image, not a narrow letterbox');
+    assert.equal(sarManifest.preprocessing.preparedSource.sampleAspectRatio,'1:1');
+  } finally { await instance.close(); await rm(f.dir,{recursive:true,force:true}); }
+});
+
 test('protocol: legacy image-slot MP4 output with unknown size is probed as video; input kinds stay strict', async () => {
   const f = await fixture(); const videoBytes = new Uint8Array(await readFile(f.video));
   const fake = fakeBackend(videoBytes, false, true, 'legacy-video-output.mp4');
@@ -203,6 +283,82 @@ test('protocol: legacy image-slot MP4 output with unknown size is probed as vide
     const bundle = await fetch(`${base}/api/jobs/${queued.id}/bundle`);
     const entries = zipEntries(Buffer.from(await bundle.arrayBuffer())); assert.deepEqual(new Uint8Array(entries.get('outputs/output-1.mp4')!), videoBytes);
   } finally { await instance.close(); await rm(f.dir, { recursive: true, force: true }); }
+});
+
+test('media crops: explicit regions, strict bounds, rotated phone footage and exact portable inputs', async () => {
+  const f = await fixture(); const tools = await discoverMediaBinaries(binaries); const ffmpeg = tools.ffmpeg.path!;
+  const quadrantVideo = path.join(f.dir,'quadrants.mp4'); const quadrantImage = path.join(f.dir,'quadrants.png'); const phone = path.join(f.dir,'phone-rotation.mov');
+  const colors = 'drawbox=x=0:y=0:w=64:h=48:color=red:t=fill,drawbox=x=64:y=0:w=64:h=48:color=blue:t=fill,drawbox=x=0:y=48:w=64:h=48:color=lime:t=fill,drawbox=x=64:y=48:w=64:h=48:color=yellow:t=fill';
+  await exec(ffmpeg,['-y','-nostdin','-v','error','-f','lavfi','-i','color=black:s=128x96:r=24:d=0.5','-vf',colors,'-c:v','libx264','-pix_fmt','yuv420p',quadrantVideo]);
+  await exec(ffmpeg,['-y','-nostdin','-v','error','-f','lavfi','-i','color=black:s=128x96','-vf',colors,'-frames:v','1',quadrantImage]);
+  await exec(ffmpeg,['-y','-nostdin','-v','error','-display_rotation','90','-i',quadrantVideo,'-c','copy',phone]);
+  const fake = fakeBackend(f.imageBytes); const instance = await startServer({port:0,dataDir:f.dataDir,workflowsDir:f.workflowsDir,transport:fake.transport,pollMs:5,binaries});
+  try {
+    const base = `http://127.0.0.1:${instance.port}`;
+    await fetch(`${base}/api/workflows/import`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(pack)});
+    const source = await upload(base,quadrantVideo,'video/mp4'); const reference = await upload(base,quadrantImage,'image/png');
+    const sourceCrop={x:0.5,y:0,width:0.5,height:0.5}; const referenceCrop={x:0,y:0.5,width:0.5,height:0.5};
+    const payload={workflowId:pack.id,sourceVideoId:source.id,referenceImageId:reference.id,sourceCrop,referenceCrop};
+    const submit = async(body:unknown)=>{const response=await fetch(`${base}/api/jobs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});assert.equal(response.status,202,await response.clone().text());const job=await response.json() as Job;return waitFor(base,job.id,value=>value.status==='succeeded');};
+    const job=await submit(payload); const manifest=await(await fetch(`${base}/api/jobs/${job.id}/manifest`)).json();
+    assert.deepEqual(manifest.preprocessing.sourceCrop,sourceCrop); assert.deepEqual(manifest.preprocessing.referenceCrop,referenceCrop);
+    assert.deepEqual(job.parameters.sourceCrop,sourceCrop); assert.equal(manifest.source.id,source.id); assert.equal(manifest.reference.id,reference.id);
+    const sha=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
+    assert.equal(manifest.sourceSha256,sha(await readFile(quadrantVideo))); assert.equal(manifest.referenceSha256,sha(await readFile(quadrantImage)));
+    const decode=async(id:string)=>(await exec(ffmpeg,['-nostdin','-v','error','-i',instance.app.locals.services.store.snapshot().assets[id].filename,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-'],{encoding:'buffer',maxBuffer:1024*1024})).stdout;
+    const pixel=(bytes:Buffer,x:number,y:number)=>[...bytes.subarray((y*64+x)*3,(y*64+x)*3+3)];
+    const blue=pixel(await decode(manifest.preprocessing.preparedSource.id),32,32); assert.ok(blue[2]!>180&&blue[0]!<80,'source crop must select original top-right blue quadrant');
+    const green=pixel(await decode(manifest.preprocessing.preparedReference.id),32,32); assert.ok(green[1]!>180&&green[0]!<80,'reference crop must independently select bottom-left green quadrant');
+    const archive=zipEntries(Buffer.from(await(await fetch(`${base}/api/jobs/${job.id}/bundle`)).arrayBuffer())); const portable=JSON.parse(archive.get('portable-workflow-api.json')!.toString());
+    assert.equal(sha(archive.get('inputs/'+portable['1'].inputs.file)!),manifest.preprocessing.sha256); assert.equal(sha(archive.get('inputs/'+portable['2'].inputs.image)!),manifest.preprocessing.preparedReferenceSha256);
+    assert.deepEqual(JSON.parse(archive.get('manifest.json')!.toString()).preprocessing.sourceCrop,sourceCrop);
+    for(const crop of [{x:-0.1,y:0,width:0.5,height:0.5},{x:0,y:0,width:0.01,height:0.5},{x:0.8,y:0,width:0.3,height:0.5},{x:0,y:0.9,width:0.5,height:0.2},{x:0,y:0,width:0.5,height:0.5,path:'/tmp/not-a-crop'}]){
+      const response=await fetch(`${base}/api/jobs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,sourceCrop:crop})}); assert.equal(response.status,400);
+    }
+    assert.equal(cropSchema.safeParse({x:Infinity,y:0,width:0.5,height:0.5}).success,false); assert.equal(cropSchema.safeParse({x:0,y:NaN,width:0.5,height:0.5}).success,false);
+    assert.equal(fake.submissions.length,1,'invalid crops must not reach Comfy');
+    const rotated=await upload(base,phone,'video/quicktime'); assert.deepEqual([rotated.width,rotated.height,rotated.codedWidth,rotated.codedHeight,rotated.rotationDegrees],[96,128,128,96,90]);
+    const rotatedJob=await submit({...payload,sourceVideoId:rotated.id,sourceCrop:{x:0,y:0,width:0.5,height:0.5}});
+    const rotatedManifest=await(await fetch(`${base}/api/jobs/${rotatedJob.id}/manifest`)).json(); const rotatedPixels=await decode(rotatedManifest.preprocessing.preparedSource.id);
+    const rotatedBlue=pixel(rotatedPixels,32,32); assert.ok(rotatedBlue[2]!>180&&rotatedBlue[0]!<80,'90-degree displayed top-left must select blue, not coded-frame red');
+    assert.equal(rotatedManifest.preprocessing.preparedSource.rotationDegrees,0);
+    const full={x:0,y:0,width:1,height:1}; const rerun=await fetch(`${base}/api/jobs/${job.id}/rerun`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sourceCrop:full,referenceCrop:full})}); assert.equal(rerun.status,202);
+    const rerunJob=await rerun.json() as Job; await waitFor(base,rerunJob.id,value=>value.status==='succeeded');
+    const fullManifest=await(await fetch(`${base}/api/jobs/${rerunJob.id}/manifest`)).json(); const red=pixel(await decode(fullManifest.preprocessing.preparedSource.id),16,20);
+    assert.ok(red[0]!>180&&red[1]!<80,'explicit full-frame region must clear the saved crop on rerun');
+  }finally{await instance.close();await rm(f.dir,{recursive:true,force:true});}
+});
+
+test('media delivery: hidden parent workspace serves originals, outputs, thumbnails and byte ranges safely', async () => {
+  const f = await fixture(); const videoBytes = new Uint8Array(await readFile(f.video));
+  const fake = fakeBackend(videoBytes,false,true,'legacy-video-output.mp4');
+  const dataDir = path.join(f.dir,'.hidden-parent','workspace');
+  const instance = await startServer({port:0,dataDir,workflowsDir:f.workflowsDir,transport:fake.transport,pollMs:5,binaries});
+  try {
+    const base = `http://127.0.0.1:${instance.port}`;
+    await fetch(`${base}/api/workflows/import`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(pack)});
+    const source = await upload(base,f.video,'video/mp4'); const reference = await upload(base,f.image,'image/png');
+    const queued = await (await fetch(`${base}/api/jobs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({workflowId:pack.id,sourceVideoId:source.id,referenceImageId:reference.id})})).json() as Job;
+    const done = await waitFor(base,queued.id,job=>job.status==='succeeded'); const output = done.outputs[0]!;
+    for (const asset of [source,reference,output]) {
+      const full = await fetch(base+asset.url); assert.equal(full.status,200,await full.clone().text());
+      const expected = asset.kind === 'video' ? videoBytes : f.imageBytes;
+      assert.deepEqual(new Uint8Array(await full.arrayBuffer()),expected);
+      const ranged = await fetch(base+asset.url,{headers:{range:'bytes=0-31'}}); assert.equal(ranged.status,206);
+      assert.equal(ranged.headers.get('content-range'),`bytes 0-31/${asset.bytes}`);
+      assert.deepEqual(new Uint8Array(await ranged.arrayBuffer()),expected.subarray(0,32));
+      assert.ok(asset.thumbnailUrl,'fixture thumbnail must exist');
+      const thumbnail = await fetch(base+asset.thumbnailUrl); assert.equal(thumbnail.status,200);
+      assert.match(thumbnail.headers.get('content-type') || '',/^image\/jpeg/);
+      assert.deepEqual(new Uint8Array(await thumbnail.arrayBuffer()).subarray(0,2),new Uint8Array([0xff,0xd8]));
+    }
+    const outside = path.join(f.dir,'outside-private.txt'); await writeFile(outside,'private-fixture-must-not-leak');
+    await instance.app.locals.services.store.update((state: {assets:Record<string,{filename:string;thumbnail?:string}>})=>{state.assets[source.id]!.filename=outside;state.assets[reference.id]!.thumbnail=outside;});
+    for (const url of [source.url,reference.thumbnailUrl!]) {
+      const blocked = await fetch(base+url); assert.equal(blocked.status,500);
+      assert.ok(!(await blocked.text()).includes('private-fixture-must-not-leak'));
+    }
+  } finally {await instance.close();await rm(f.dir,{recursive:true,force:true});}
 });
 
 test('protocol: lost tracking stays recoverable; restart and cancellation follow the confirmed remote ID', async () => {
@@ -297,6 +453,33 @@ test('security: explicitly allowed Vite origin can upload, without granting unre
   } finally { await instance.close(); await rm(f.dir, { recursive: true, force: true }); }
 });
 
+test('security: cross-site top-level root navigation works while APIs and embedded requests stay blocked', async () => {
+  const f = await fixture(); const fake = fakeBackend(f.imageBytes); const staticDir = path.join(f.dir,'frontend');
+  await mkdir(staticDir); await writeFile(path.join(staticDir,'index.html'),'<html><body>local-app-navigation-fixture</body></html>');
+  const instance = await startServer({port:0,dataDir:f.dataDir,workflowsDir:f.workflowsDir,staticDir,transport:fake.transport,binaries});
+  try {
+    const base = `http://127.0.0.1:${instance.port}`;
+    const navigation = {'sec-fetch-site':'cross-site','sec-fetch-mode':'navigate','sec-fetch-dest':'document'};
+    // Node fetch overwrites Sec-Fetch-Mode with "cors". Use actual HTTP header
+    // bytes here to exercise the document-navigation request Chrome sends.
+    const wire = (url: string,headers: Record<string,string>,method = 'GET') => new Promise<{status:number;body:string;csp:string}>((resolve,reject)=>{
+      const req = request(new URL(base+url),{method,headers},response=>{const chunks:Buffer[]=[];response.on('data',(chunk:Buffer)=>chunks.push(chunk));response.on('end',()=>resolve({status:response.statusCode!,body:Buffer.concat(chunks).toString(),csp:String(response.headers['content-security-policy'] || '')}));});req.on('error',reject);req.end();
+    });
+    const entry = await wire('/',navigation); assert.equal(entry.status,200); assert.match(entry.body,/local-app-navigation-fixture/);
+    assert.match(entry.csp,/frame-ancestors 'none'/);
+    for (const [url,headers,method] of [
+      ['/api/health',navigation,'GET'],
+      ['/api/jobs',navigation,'GET'],
+      ['/index.html',navigation,'GET'],
+      ['/',{...navigation,'sec-fetch-dest':'iframe'},'GET'],
+      ['/',{...navigation,'sec-fetch-mode':'cors'},'GET'],
+      ['/',navigation,'POST'],
+      ['/',{...navigation,origin:'https://attacker.example'},'GET'],
+    ] as const) assert.equal((await wire(url,headers,method)).status,403,`${method} ${url} must stay blocked`);
+    const health = await (await fetch(base+'/api/health')).json(); assert.deepEqual(health.limits.previewFps,{min:8,max:30,default:'workflow'});
+  } finally {await instance.close();await rm(f.dir,{recursive:true,force:true});}
+});
+
 test('durability: one workspace owner, intact state and lock release after shutdown or listen failure', async () => {
   const f = await fixture(); const fake = fakeBackend(f.imageBytes);
   let instance = await startServer({ port: 0, dataDir: f.dataDir, workflowsDir: f.workflowsDir, transport: fake.transport, binaries });
@@ -356,4 +539,14 @@ test('audit: missing model names are actionable and only the pinned local GGUF c
   const audited = auditWorkflow(p, { ...info, CLIPLoaderGGUF: { python_module: 'custom_nodes.ComfyUI-GGUF', input: { required: { clip_name: [['installed.gguf']] } } } });
   assert.equal(audited.blockedNodes.length, 0); assert.deepEqual(audited.missingModels, ['CLIPLoaderGGUF.clip_name: missing.gguf']);
   assert.ok(auditWorkflow(p, { ...info, CLIPLoaderGGUF: { python_module: 'custom_nodes.some-other-plugin' } }).blockedNodes.length);
+});
+
+test('audit: portrait core requires the exact local module and installed pinned model', () => {
+  const portraitGraph = { ...graph, '5': { class_type: 'OpenGenjutsuPortrait', inputs: { model: 'LivePortrait MIT core 82a4fa6' } } };
+  const p = { ...parseWorkflow(pack), id: pack.id!, createdAt: '', updatedAt: '', graph: portraitGraph };
+  const info = Object.fromEntries(Object.values(graph).map(node => [node.class_type, { python_module: 'nodes', input: { required: {} } }]));
+  const definition = { python_module: 'custom_nodes.open_genjutsu_portrait', input: { required: { model: [['LivePortrait MIT core 82a4fa6']] } } };
+  assert.deepEqual(auditWorkflow(p, { ...info, OpenGenjutsuPortrait: definition }).blockedNodes, []);
+  assert.ok(auditWorkflow(p, { ...info, OpenGenjutsuPortrait: { ...definition, python_module: 'custom_nodes.other' } }).blockedNodes.length);
+  assert.ok(auditWorkflow(p, { ...info, OpenGenjutsuPortrait: { ...definition, input: { required: { model: [[]] } } } }).missingModels.length);
 });

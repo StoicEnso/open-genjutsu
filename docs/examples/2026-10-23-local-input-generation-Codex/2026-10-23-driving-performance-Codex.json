@@ -1,0 +1,136 @@
+{
+  "4": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "wan2.1_vace_1.3B_fp16.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "5": {
+    "class_type": "CLIPLoaderGGUF",
+    "inputs": {
+      "clip_name": "umt5-xxl-encoder-Q4_K_M.gguf",
+      "type": "wan"
+    }
+  },
+  "6": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "Wan2_1_VAE_bf16.safetensors"
+    }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "5",
+        0
+      ],
+      "text": "A close-up portrait of one entirely fictional adult woman aged thirty, brown hair pulled back, plain dark navy shirt, soft neutral light, warm grey studio background, complete head and chin with shoulders, face centered and almost frontal. Locked camera, one continuous shot. She starts neutral then slowly raises her eyebrows, widens her eyes in disbelief, tilts her head slightly and finishes with a dry amused small closed mouth smile. Natural subtle facial acting, head movement very small, shoulders still, hands below frame."
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "5",
+        0
+      ],
+      "text": "blurry, distorted face, deformed anatomy, extra person, text, watermark, cropped head, large head turn, hands, makeup, painting, illustration"
+    }
+  },
+  "10": {
+    "class_type": "WanVaceToVideo",
+    "inputs": {
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "8",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ],
+      "width": 320,
+      "height": 320,
+      "length": 49,
+      "batch_size": 1,
+      "strength": 0
+    }
+  },
+  "11": {
+    "class_type": "ModelSamplingSD3",
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "shift": 8
+    }
+  },
+  "12": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "11",
+        0
+      ],
+      "seed": 2026102302,
+      "steps": 28,
+      "cfg": 6,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "10",
+        2
+      ],
+      "denoise": 1
+    }
+  },
+  "14": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ]
+    }
+  },
+  "15": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "14",
+        0
+      ],
+      "fps": 12
+    }
+  },
+  "16": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "15",
+        0
+      ],
+      "filename_prefix": "2026-10-23-local-reaction-driver-Codex",
+      "format": "auto",
+      "codec": "auto"
+    }
+  }
+}

@@ -1,11 +1,12 @@
-const { app, BrowserWindow, Menu, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, session, shell, safeStorage } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { createCredentialStore } = require('./credentials.cjs');
 
 let mainWindow;
 let localServer;
 let origin;
-const externalOrigins = new Set(['https://github.com', 'https://docs.comfy.org']);
+const externalOrigins = new Set(['https://github.com', 'https://docs.comfy.org', 'https://platform.comfy.org']);
 
 async function openWindow() {
   if (mainWindow) { mainWindow.show(); mainWindow.focus(); return; }
@@ -38,6 +39,7 @@ else {
       port: 0,
       dataDir: process.env.OPEN_GENJUTSU_DATA_DIR || path.join(app.getPath('userData'), 'desktop-workspace'),
       staticDir: path.join(__dirname, '..', 'dist'),
+      cloudCredentials: createCredentialStore(safeStorage, app.getPath('userData')),
     });
     origin = `http://127.0.0.1:${localServer.port}`;
     console.log(`Open Genjutsu desktop server: ${origin}`);

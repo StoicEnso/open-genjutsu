@@ -1,0 +1,73 @@
+{
+  "created": "2026-10-23",
+  "purpose": "Disclosed synthetic historical portrait animation; no authentic Lincoln performance or institutional endorsement implied.",
+  "application": "Open Genjutsu0.2.0",
+  "workflowId": "liveportrait-portrait",
+  "parameters": {
+    "frames": 41,
+    "startSeconds": 0.125,
+    "fps": 16,
+    "motionStrength": 0.65,
+    "sourceCrop": {
+      "x": 0.125,
+      "y": 0,
+      "width": 0.75,
+      "height": 1
+    },
+    "referenceCrop": {
+      "x": 0.10204,
+      "y": 0.09766,
+      "width": 0.78717,
+      "height": 0.52734
+    }
+  },
+  "inputPixels": 256,
+  "outputPixels": 512,
+  "frameCount": 41,
+  "fps": 16,
+  "durationSeconds": 2.5625,
+  "appEndToEndSeconds": 41.227,
+  "sources": [
+    {
+      "url": "https://www.loc.gov/item/00694192/",
+      "derivative": "https://commons.wikimedia.org/wiki/File:Fred_Ott%27s_Sneeze_(1894).webm",
+      "credit": "Fred Ott's Sneeze (1894), Library of Congress, via Commons",
+      "originalSha256": "a310a9e466490de4c32b39f25411790023dbc198e04902a2276f1fdfec2cd690",
+      "preparedSha256": "6f87fcc68791cddce1c838ebbbe75f0d580a738baca62c90c2159e32ab2ae086"
+    },
+    {
+      "url": "https://www.loc.gov/item/2002725260/",
+      "credit": "Abraham Lincoln frontal portrait(1863), Library of Congress, no known restrictions on publication",
+      "originalSha256": "3c96e3c1237d9552c97d0650505e4fe8907c356dbc547e80ca31bde0b8daa993",
+      "preparedSha256": "92f4bd215021796ada228bbb5befbfe0def3a185df2bb21802ae0c6ff6df7c30"
+    }
+  ],
+  "processing": "Explicit square crop, source window,16fps sample; core-only LivePortrait relative keypoint/stitching gain0.65. No GFPGAN, interpolation, slow motion or body transfer.",
+  "comparisonRepetitions": 4,
+  "outputFiles": {
+    "2026-10-23-historical-portrait-output-Codex.mp4": {
+      "sha256": "18d5fc44c4cdc705ee8ec8e953dccff7a68219fc1401ad8db77a305dc8d7d6c6",
+      "bytes": 455147
+    },
+    "2026-10-23-human-portrait-comparison-Codex.mp4": {
+      "sha256": "cc0196ba15ba59cfbbc245431cd7557f8518d03d45e30bcf93d0f69bd9cde39c",
+      "bytes": 1962271
+    },
+    "2026-10-23-human-portrait-comparison-Codex.png": {
+      "sha256": "6363edc162396153e013f56a2cb7eb9e469ae703d0c362b50a2f427201ead607",
+      "bytes": 398702
+    },
+    "2026-10-23-working-mac-app-Codex.png": {
+      "sha256": "aec8f8167e632a2adc9c122f13a7e882749ac3c31c853a50bb225538138e3faa",
+      "bytes": 100701
+    },
+    "2026-10-23-open-genjutsu-showcase-Codex.mp4": {
+      "sha256": "c5d1906321f069dfa4aa526988668f89e1fec3e84e5fcfe77c5814cafbdd5544",
+      "bytes": 2249673
+    }
+  },
+  "revision": {
+    "date": "2026-10-24",
+    "status": "Historical media archived outside current submission version; original provenance retained for textual audit. Output files below are not included in the current tree. No Git history rewritten."
+  }
+}

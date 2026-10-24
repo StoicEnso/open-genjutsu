@@ -1,0 +1,3 @@
+# Add to an existing ComfyUI Python environment. Tested on Python3.12/Torch2.14 MPS.
+# ComfyUI already supplies Torch, NumPy, SciPy, PyYAML and rich.
+opencv-python-headless==4.10.0.84
